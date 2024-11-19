@@ -4,7 +4,6 @@ import json
 import pyrealsense2 as rs
 import numpy as np
 import cv2
-from MediaPipe import MediaPipe
 
 # ================
 # Pre-init
@@ -50,11 +49,6 @@ def send(sock, msg):
 	data = json.dumps(msg)
 	sock.sendall(data.encode('utf-8'))
 	print("Sent: ", msg)
-
-# ================
-# MediaPipe Setup
-# ================
-mediapipe = MediaPipe()
 
 # ================
 # Realsense Setup
@@ -105,14 +99,6 @@ try:
 			if not depth_frame or not color_frame:
 				continue
 			color_image = np.asanyarray(color_frame.get_data())
-
-			# ==== MARKER TRACKING ====
-			bodyTrackingImage = np.copy(color_image)
-			bodyTrackingImage[:, :bodyTrackingImage.shape[1] // 2, :] = 0.0
-			detection_results = mediapipe.detect(bodyTrackingImage)
-			skeleton_data = mediapipe.skeleton(color_image, detection_results, depth_frame)
-			if DEBUG:
-				bodyTrackingImage = mediapipe.draw_landmarks_on_image(color_frame, detection_results) #NOTE: I SWITCHED THIS WITH PREVIOUS LINE
 
 			# ==== MARKER TRACKING ====
 			corners, ids, rejected = arucoDetector.detectMarkers(color_image)
@@ -200,17 +186,6 @@ try:
 				msg["CalibratedForwardUS"] = {"x": calibratedForward[0].item(), "y": calibratedForward[1].item(), "z": calibratedForward[2].item()}
 				calibratedUp = CalibrationMatrix.transpose().dot([0.0, 1.0, 0, 1.0])
 				msg["CalibratedUpUS"] = {"x": calibratedUp[0].item(), "y": calibratedUp[1].item(), "z": calibratedUp[2].item()}
-
-				# ==== Process skeleton data ==== 
-				if skeleton_data is not None:
-					tempLHand = {"x": skeleton_data["LHand_x"], "y": skeleton_data["LHand_y"], "z": skeleton_data["LHand_z"]}
-					msg["LHand"] = tempLHand
-
-					tempRHand = {"x": skeleton_data["RHand_x"], "y": skeleton_data["RHand_y"], "z": skeleton_data["RHand_z"]}
-					msg["RHand"] = tempRHand
-
-					tempHead = {"x": skeleton_data["Head_x"], "y": skeleton_data["Head_y"], "z": skeleton_data["Head_z"]}
-					msg["Head"] = tempHead
 
 				send(sock, msg)
 
