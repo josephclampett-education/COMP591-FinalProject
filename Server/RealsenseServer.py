@@ -8,12 +8,11 @@ import cv2
 # Data
 # ================
 # Sequence
-HasCalibrated = False
 DEBUG = False
 DEBUG = True
 
 # State
-CalibrationMatrix = np.zeros((4, 4))
+# CalibrationMatrix = np.zeros((4, 4))
 MarkerCentroids = np.zeros((250, 3))
 MarkerAges = np.full(250, -1)
 CurrentTime = 0
@@ -106,18 +105,6 @@ while True:
 		
 		outLiveMarkerIds.append(outId)
 		outLiveMarkerPositionsRS.append(outCentroidRS)
-	msg["LiveIds"] = outLiveMarkerIds
-	msg["LivePositionsRS"] = outLiveMarkerPositionsRS
-
-	# ==== Create basis info ==== 
-	calibratedOrigin = CalibrationMatrix.transpose().dot([0, 0, 0, 1.0])
-	msg["CalibratedOriginUS"] = {"x": calibratedOrigin[0].item(), "y": calibratedOrigin[1].item(), "z": calibratedOrigin[2].item()}
-	calibratedForward = CalibrationMatrix.transpose().dot([0.0, 0, 1.0, 1.0])
-	msg["CalibratedForwardUS"] = {"x": calibratedForward[0].item(), "y": calibratedForward[1].item(), "z": calibratedForward[2].item()}
-	calibratedUp = CalibrationMatrix.transpose().dot([0.0, 1.0, 0, 1.0])
-	msg["CalibratedUpUS"] = {"x": calibratedUp[0].item(), "y": calibratedUp[1].item(), "z": calibratedUp[2].item()}
-
-	send(sock, msg)
 
 	# Show images
 	cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
