@@ -13,7 +13,7 @@ class Regiment:
             return steps.popleft()
         else return None
 
-class Step:
+class Step(Enum):
     SERVE_RULES = 0 # explain rules for serving
     HIT_RULES = 1 # explian rules for hitting
     STATIONARY_HIT = 2 # user hitting stationary robot with one birdie
