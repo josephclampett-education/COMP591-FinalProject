@@ -10,10 +10,15 @@ class Regiment:
     def add_step(step: Step):
         steps.append(step)
 
-    def get_next_step():
+    def get_next_step(robot_location: Loctation.RobotLocation):
         if len(steps) > 0:
-            return steps.popleft()
-        else return None
+            next = steps.popleft()
+            match next:
+                case Collection():
+                    next.current_birdie = robot_location
+            return next
+        else:
+            return None
 
 class Step:
     pass
