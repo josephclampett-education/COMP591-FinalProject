@@ -1,6 +1,8 @@
 from collections import deque
 from enum import Enum
 
+import Loctation
+
 class Regiment:
     def __init__(self):
         self.steps = deque()
@@ -13,11 +15,34 @@ class Regiment:
             return steps.popleft()
         else return None
 
-class Step(Enum):
-    SERVE_RULES = 0 # explain rules for serving
-    HIT_RULES = 1 # explian rules for hitting
-    STATIONARY_HIT = 2 # user hitting stationary robot with one birdie
-    MOVING_HIT = 3 # user hitting moving robot with one birdie
-    COLLECTION = 4 # collect birdies
-    STATIONARY_SERVE = 5 # user serving to stationary robot with one birdie
-    MOVING_SERVE = 6 # user serving to moving robot with one birdie
+class Step:
+    pass
+
+class HitType(Enum):
+    HIT = 0
+    SERVE = 1
+
+class MovePattern(Enum):
+    STRAIGHT = 0
+
+# explain rules for given hit_type
+class Rule(Step):
+    def __init__(self, hit_type: HitType):
+        self.hit_type = hit_type
+
+# collect all birdies on field
+class Collection(Step):
+    def __init__(self):
+        self.current_birdie = None
+
+# user hitting or serving robot that moves in given move_pattern
+class MovingTarget(Step):
+    def __init__(self, hit_type: HitType, move_pattern: MovePattern):
+        self.hit_type = hit_type
+        self.move_pattern = move_pattern
+
+# user hitting or serving stationary robot at position
+class StationaryTarget(Step):
+    def __init__(self, hit_type: HitType, position: Position):
+        self.hit_type = hit_type
+        self.position = position
