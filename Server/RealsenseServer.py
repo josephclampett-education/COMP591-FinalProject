@@ -3,6 +3,9 @@ import json
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+import pandas as pd
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # ================
 # Data
@@ -63,7 +66,17 @@ background = np.asanyarray(color_frame.get_data())
 background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
 ### Store the birdie positions
-birdie_positions = [[] for _ in range(100)]
+birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
+
+# Find theta angle (angle on x-axis between top left and top right corner)
+def aruco_angle(corner_top_left, corner_top_right):
+    delta_x = (corner_top_right[0] - corner_top_left[0])
+    delta_y = (corner_top_right[1] - corner_top_left[1])
+    #print(delta_x, delta_y)
+    theta = np.atan(np.array(delta_y), np.array(delta_x))
+    return theta, delta_x, delta_y
+
+
 
 while True:
     # ==== FRAME QUERYING ====
@@ -94,6 +107,13 @@ while True:
         MarkerCentroids[id] = centerRS
         if MarkerAges[id] != -2:
             MarkerAges[id] = CurrentTime
+
+        theta, delta_x, delta_y = aruco_angle(cornerSet[0], cornerSet[1])
+        if CurrentTime % 100 == 0:
+            print("theta", np.rad2deg(theta))
+            print("xdelta", delta_x)
+            print("ydelta", delta_y)
+       
             
     # ==== Process all incoming markers ==== 
     outLiveMarkerIds = []
@@ -115,6 +135,8 @@ while True:
         outLiveMarkerIds.append(outId)
         outLiveMarkerPositionsRS.append(outCentroidRS)
 
+
+    
     # ==== DEBUG START ====
     if DEBUG:
         color_image = cv2.aruco.drawDetectedMarkers(color_image,corners,ids)
@@ -131,16 +153,18 @@ while True:
         else:
             images = np.hstack((color_image, depth_colormap))
 
-        
-
         ### Birdie Tracking Code ###
-
+        ### information ###
+        # x is the width value. Center of camera is 0 width right going positiv
+        # y is the height value. Center of camera is 0 width downwards going positiv
+        # z is the deph value starting at 0 with increasing value with higher distance
+        ### information ###
         # Convert current frame to grayscale
         gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
         
         # Subtract background
         diff = cv2.absdiff(background, gray_frame)
-
+        
         # Threshold to create a binary mask
         _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
         #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -168,7 +192,18 @@ while True:
                 centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
                 centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
                 
-                birdie_positions[birdie_id].append((centerRS[0], centerRS[1], centerZ))
+                # Append to DataFrame
+                new_row = pd.DataFrame([{
+                    'frame': CurrentTime,
+                    'id': birdie_id,
+                    'x': centerRS[0],
+                    'y': centerRS[1],
+                    'z': centerZ
+                }])
+
+                # Use pd.concat() to add the new row to the DataFrame
+                birdie_positions = pd.concat([birdie_positions, new_row], ignore_index=True)
+
 
                 fontScale = 2.3
                 fontFace = cv2.FONT_HERSHEY_PLAIN
@@ -178,25 +213,85 @@ while True:
                 cv2.putText(color_image, str(round(centerZ, 2)), centerSS, fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
+        """
+        if CurrentTime == 200:
+            print("200 timestep")
+            # Filter for unique birdie IDs
 
+           # Create a 3D plot
+
+            # Filter the DataFrame for a specific birdie ID if desired (optional)
+            birdie_id_to_plot = 0  # Change this to the birdie ID you want to plot
+            birdie_data = birdie_positions[birdie_positions['id'] == birdie_id_to_plot]
+            #print(birdie_data)
+            # Extract the coordinates
+            x = birdie_data['x']
+            y = birdie_data['y']
+            z = birdie_data['z']
+            frame = birdie_data['frame']  # Optional for color
+
+            # Create the 3D plot
+            fig = plt.figure(figsize=(10, 7))
+            ax = fig.add_subplot(111, projection='3d')
+
+            # Scatter plot (3D)
+            sc = ax.scatter(x, z, -y, c=frame, cmap='viridis', label=f'Birdie {birdie_id_to_plot}')
+            plt.colorbar(sc, label='Frame')
+
+            # Optional: Connect points with a line
+            ax.plot(x, z, -y, color='gray', alpha=0.5)
+
+            # Labels and title
+            ax.set_title(f"3D Trajectory of Birdie {birdie_id_to_plot}")
+            ax.set_xlabel('X Position')
+            ax.set_ylabel('Y Position(RS: Z)')
+            ax.set_zlabel('Z Position(RS: -y)')
+            ax.legend()
+
+            ax.set_xlim(-2, 2)  # Replace with your desired range for x-axis
+            ax.set_ylim(0, 5)  # Replace with your desired range for y-axis
+            ax.set_zlim(-2, 2)  # Replace with your desired range for z-axis
+
+            # Show plot
+            plt.show()
+
+            # Add labels, legend, and title
+            ax.set_title("3D Trajectories of All Birdies")
+            ax.set_xlabel('X Position')
+            ax.set_ylabel('Y Position')
+            ax.set_zlabel('Z Position')
+            ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.05))
+
+            # Show plot
+            plt.show()
+            """
+        """
         # Display results
         cv2.imshow("Background Subtraction", color_image)
         cv2.imshow("Mask", mask)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("amount of datapoints", len(birdie_positions[0]))
+            print("amount of datapoints", birdie_positions.shape)
             print("timestep: ", CurrentTime)
             break
         elif cv2.waitKey(1) & 0xFF == ord('r'):
+            print("reset at frame", CurrentTime)
+            # Reset background
             frames = pipeline.wait_for_frames()
             color_frame = frames.get_color_frame()
             background = np.asanyarray(color_frame.get_data())
             background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+
+            # Reset time and dataframe
+            CurrentTime = 0
+            birdie_positions = birdie_positions.drop(birdie_positions.index)
+
+            """
         
         # Show images
-        #cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        #cv2.imshow('RealSense', images)
-        #cv2.waitKey(1)
+        cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('RealSense', images)
+        cv2.waitKey(1)
 
     # ==== DEBUG END ====
 
