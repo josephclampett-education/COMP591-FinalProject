@@ -1,7 +1,8 @@
 from collections import deque
 from enum import Enum
 
-import Loctation
+import Location
+from Location import Position
 
 class Regiment:
     def __init__(self):
@@ -10,7 +11,7 @@ class Regiment:
     def add_step(step: Step):
         steps.append(step)
 
-    def get_next_step(robot_location: Loctation.RobotLocation):
+    def get_next_step(robot_location: Location.RobotLocation):
         if len(steps) > 0:
             next = steps.popleft()
             match next:

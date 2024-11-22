@@ -3,6 +3,7 @@ from collections import deque
 import RealsenseServer
 import Location
 import Regiment
+import math
 
 birdie_length = 5 # TODO
 robot_length = 10 # TODO center of robot to gripper tip
@@ -30,7 +31,7 @@ def make_collection_schedule(robot_location, birdie_positions):
         current = next
 
 def distance(first, second):
-    return sqrt((first.x - second.x) ** 2 + (first.y - second.y) ** 2)
+    return math.sqrt((first.x - second.x) ** 2 + (first.y - second.y) ** 2)
 
 # TODO: use robot orientation or find center and radius of gripper "circle"
 def has_collected(robot_location, birdie_position):
@@ -57,4 +58,3 @@ while True:
             if has_collected(robot_location, current_step.current_birdie):
                 remaining_birdies = filter(lambda pos: not has_collected(robot_location, pos), birdie_positions)
                 current_step.current_birdie = None # TODO
-

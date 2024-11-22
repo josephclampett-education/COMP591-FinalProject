@@ -21,4 +21,4 @@ class RobotLocation(Position, Orientation):
         Position.__init__(x,y,z)
 
     def get_gripper_position():
-        return Position(0,0,z) # TODO: calculate using orientation
+        return Position(0, 0, z) # TODO: calculate using orientation

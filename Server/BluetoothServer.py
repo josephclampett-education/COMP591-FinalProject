@@ -1,6 +1,8 @@
+# GUIDE: https://github.com/orgs/pybricks/discussions/1193
+
 from pybricks.messaging import BluetoothMailboxServer, TextMailbox
 
-def setup()
+def setup():
     server = BluetoothMailboxServer()
     mbox = TextMailbox('talk', server)
 
@@ -13,3 +15,5 @@ def setup()
     mbox.send("hello back!")
 
     return (server,mbox)
+
+setup()
