@@ -5,15 +5,13 @@ import speech_recognition as sr
 import time
 
 # Initialize OpenAI client
-OpenAI.api_key = dotenv_values('.env')["API_KEY"]
+OpenAI.api_key = dotenv_values('Talk and Listen\.env')["API_KEY"]
 client = OpenAI(api_key=OpenAI.api_key)
-#client_input = None
+client_input = None
 
 score = 0
-keywords = ["serve target area", "Hit the target area","RightRectangle","LeftRectangle"]
 
-
-#Respond with a preset action from Robot(Text to Speech)
+#(Text to Speech)
 def generate_tts(text):
     try:
         # Correct parameter names as per API documentation
@@ -30,10 +28,11 @@ def generate_tts(text):
     except Exception as e:
         print(f"Error generating TTS: {e}")
 #Testing 
-#generate_tts("move forward")
+generate_tts("move forward")
 
 
 #Automatic Response from OpenAi
+"""
 def chatgpt_response(input_text):
     response_text = ""  # Initialize a variable to store the response
     try:
@@ -53,14 +52,16 @@ def chatgpt_response(input_text):
     return response_text  # Return the full response text after streaming
 
 #chatgpt_response("Whats your name")
+"""
 
 
 # Robot logic based on recognized commands
+"""
 def robot_action(command):
     if "yes" in command:
         print("Robot executing: drive Rectangle and ExplainServeTargetArea")
-        generate_tts("""Please remember that when starting the serve, the shuttle should be served to the diagonal court. 
-                     I will now walk around the hitting area, please observe carefully.""")
+        generate_tts("lease remember that when starting the serve, the shuttle should be served to the diagonal court. 
+                     I will now walk around the hitting area, please observe carefully.")
         time.sleep(10)
         return True
     elif "point" or "score" or "grade" in command:
@@ -71,16 +72,16 @@ def robot_action(command):
         print("No keyword matched. Asking ChatGPT for a response.")
         generate_tts(chatgpt_response(command))
         return False
-        
+"""    
 
-#obtain audio from the microphone
+#user's Input, speech to text
 def listen():
  while True:
      recognizer = sr.Recognizer()
      with sr.Microphone() as source:
         print("Say something!")
         try:
-            audio = recognizer.listen(source,timeout=5, phrase_time_limit=10)
+            audio = recognizer.listen(source,timeout=10, phrase_time_limit=10)
             client_input = recognizer.recognize_whisper_api(audio, api_key=OpenAI.api_key)
             print(f"Recognized command: {client_input}")   
             return client_input
@@ -89,13 +90,51 @@ def listen():
            return None
         except sr.UnknownValueError:
             print("Could not understand the audio.")
-           # return generate_tts("I could not understand what you said.")
             return None
         except sr.RequestError as e:
             print(f"Could not request results from Whisper API; {e}")
-          #  return generate_tts("There was an error processing your request.")
             return None
 
+def process_user_input(user_input):
+    # Prompt ChatGPT to analyze the user's intent
+    UNIQUE_KEYWORDS = {
+        "continue": "23deredfad",
+        "end": "9fjk2s8",
+        "score": "98asds8hjw",
+        "unsure": "unsure"
+        
+    }
+
+    # 创建用于意图解析的 Prompt
+    prompt = f"""
+    User input: "{user_input}".
+    Determine the user's intent based on these rules:
+    - To continue the game, return: "{UNIQUE_KEYWORDS['continue']}".
+    - To end the game, return: "{UNIQUE_KEYWORDS['end']}".
+    - To ask about the score or points (e.g., "What is my current score?", "How many points do I have?", etc.), return: "{UNIQUE_KEYWORDS['score']}".
+    - If the intent is unclear, return: "{UNIQUE_KEYWORDS['unsure']}".
+    Respond with only one of these identifiers: "{', '.join(UNIQUE_KEYWORDS.values())}".
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are an assistant that helps identify user intent."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=10,
+        temperature=0
+    )
+    
+    # Extract the content of the response
+    responseChoices = response.choices
+    responseChoice = responseChoices[0]
+    responseMessage = responseChoice.message
+    responseContent = responseMessage.content
+    intent = responseContent.strip()
+    return intent
+    
+   
         # Speech recognition and command handling
 def listen_and_respond():
     print("""Hello, I am your badminton practice partner, and you can call me PiPi. 
@@ -107,20 +146,37 @@ def listen_and_respond():
                  and the second round is to practice badminton hitting techniques.
                  Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.
                   """)
-    generate_tts("Are you in position")
-    print("Are you in position")
     while True:
         client_input = listen()
         if client_input:
-            client_input = client_input.lower()
+            client_input = client_input = client_input.strip().lower()
             print(client_input)
-            if "stop" in client_input:
-                generate_tts("Ending the session. Goodbye!")
-                break
-            if not robot_action(client_input):
+
+        intent = process_user_input(client_input)
+        # Act based on the intent
+        if intent == "23deredfad":  # match "continue"
+          generate_tts("The game continues!")
+          print("The game continues!")
+        elif intent == "9fjk2s8":  # match "end"
+            generate_tts("The game has ended! Thank you for playing!")
+            print("The game has ended! Thank you for playing!")
+            break
+        elif intent == "98asds8hjw":  # match "score"
+             generate_tts(f"Your current score is {score} points.")
+             print(f"Your current score is {score} points.")
+        else:  # match "unsure"
+           generate_tts("I couldn't understand your intent. Please try again.")
+           print("I couldn't understand your intent. Please try again.")
+
+       # if "stop" in client_input:
+        #    generate_tts("Ending the session. Goodbye!")
+         #   break
+        """
+        if not robot_action(client_input):
                 generate_tts("Sorry, I didn't understand the command.")
         else:
             print("Player did not respond.")
+            """
 
 listen_and_respond()
     
