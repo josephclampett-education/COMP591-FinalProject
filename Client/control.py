@@ -1,4 +1,4 @@
-#!/usr/bin/env pybricks-micropython
+#!/usr/bin/env python3
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor
 from pybricks.parameters import Port, Stop
