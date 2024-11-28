@@ -4,7 +4,9 @@ client = BluetoothMailboxClient()
 mbox = TextMailbox('talk', client)
 
 print("Connecting to EV3...")
-client.connect('ev3_name')  # Replace 'ev3_name' with your EV3 Bluetooth name
+while client.connect('00:17:E9:F8:C1:77') == 'None':
+    print("Failed to connect. Retrying...")
+
 print("Connected!")
 
 commands = ["FORWARD", "LEFT", "MOVE 100 100", "STOP"]
