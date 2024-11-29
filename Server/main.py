@@ -1,9 +1,13 @@
 from collections import deque
 
 import RealsenseServer
+import textToSpeech
 import Location
 import Regiment
 import math
+import asyncio
+from queue import Queue
+from threading import Event, Thread
 
 birdie_length = 5 # TODO
 robot_length = 10 # TODO center of robot to gripper tip
@@ -37,24 +41,48 @@ def distance(first, second):
 def has_collected(robot_location, birdie_position):
     return distance(robot_location, birdie_position) < distance(robot_location, robot_location.get_gripper_position)
 
-prev_birdie_positions = None
-prev_robot_location = None
 
-regiment: Regiment.Regiment = game.get_next_regiment()
-current_step = regiment.get_next_step()
+def main():
+    # prev_birdie_positions = None
+    # prev_robot_location = None
 
-while True:
-    robot_location: Location.RobotLocation = RealsenseServer.detect_robot()
-    birdie_positions: list[Location.BirdiePosition] = RealsenseServer.detect_birdies()
+    regiment: Regiment.Regiment = game.get_next_regiment()
+    current_step = regiment.get_next_step()
 
-    match current_step:
-        case Regiment.Rule():
+    realsense = RealsenseServer.RealsenseServer(42) # TODO
+    event_queue = Queue()
+    point_queue = Queue()
+    textToSpeechThread = Thread(target=textToSpeech.listen_and_respond, args=(point_queue, event_queue))
+    textToSpeechThread.start()
+    # textToSpeechTask = asyncio.to_thread(textToSpeech.listen_and_respond(point_queue, event_queue))
+
+    points = 0
+
+    while True:
+        if not textToSpeechThread.is_alive():
             break
-        case Regiment.MovingTarget():
-            break
-        case Regiment.StationaryTarget():
-            break
-        case Regiment.Collection():
-            if has_collected(robot_location, current_step.current_birdie):
-                remaining_birdies = filter(lambda pos: not has_collected(robot_location, pos), birdie_positions)
-                current_step.current_birdie = None # TODO
+
+        if not event_queue.empty():
+            print("got event")
+            event: Event = event_queue.get()
+            point_queue.put(points)
+            event.set()
+
+        realsense.detect()
+        # robot_location: Location.RobotLocation = None
+        # birdie_positions: list[Location.BirdiePosition] = RealsenseServer.detect_birdies()
+
+        match current_step:
+            case Regiment.Rule():
+                break
+            case Regiment.MovingTarget():
+                break
+            case Regiment.StationaryTarget():
+                break
+            case Regiment.Collection():
+                if has_collected(robot_location, current_step.current_birdie):
+                    remaining_birdies = filter(lambda pos: not has_collected(robot_location, pos), birdie_positions)
+                    current_step.current_birdie = None # TODO
+    print("a")
+
+main()

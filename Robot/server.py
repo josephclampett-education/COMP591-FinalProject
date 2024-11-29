@@ -7,6 +7,9 @@
 # The server must be started before the client!
 
 from pybricks.messaging import BluetoothMailboxServer, TextMailbox
+import control
+
+robot = control.Robot_Car()
 
 server = BluetoothMailboxServer()
 mbox = TextMailbox('greeting', server)
@@ -18,6 +21,15 @@ print('connected!')
 
 # In this program, the server waits for the client to send the first message
 # and then sends a reply.
-mbox.wait()
-print(mbox.read())
-mbox.send('hello to you!')
+while True:
+    mbox.wait()
+    command = mbox.read()
+    mbox.send(f'received {command}')
+    match command:
+        case "LEFT":
+            robot.turn_left(90)
+        case "RIGHT":
+            robot.turn_right(90)
+        case "END":
+            robot.stop()
+            break
