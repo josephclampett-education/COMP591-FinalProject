@@ -13,8 +13,6 @@ mbox = TextMailbox('greeting', server)
 
 # The server must be started before the client!
 print('waiting for connection...')
-# while not server.wait_for_connection():
-#     print("waiting")
 server.wait_for_connection()
 print('connected!')
 
