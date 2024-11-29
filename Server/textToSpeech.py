@@ -159,23 +159,28 @@ def listen_and_respond(point_queue, event_queue):
         intent = process_user_input(client_input)
         # intent = "98asds8hjw"
         # Act based on the intent
-        if intent == "23deredfad":  # match "continue"
-            generate_tts("The game continues!")
-            print("The game continues!")
-        elif intent == "9fjk2s8":  # match "end"
-            generate_tts("The game has ended! Thank you for playing!")
-            print("The game has ended! Thank you for playing!")
-            break
-        elif intent == "98asds8hjw":  # match "score"
-            event = Event()
-            event_queue.put(event)
-            event.wait()
-            score = point_queue.get()
-            generate_tts(f"Your current score is {score} points.")
-            print(f"Your current score is {score} points.")
-        else:  # match "unsure"
-            generate_tts("I couldn't understand your intent. Please try again.")
-            print("I couldn't understand your intent. Please try again.")
+        match intent:
+            case "GPTCODE_CONTINUE": # match "continue"
+                generate_tts("The game continues!")
+                print("The game continues!")
+            case "GPTCODE_END":  # match "end"
+                generate_tts("The game has ended! Thank you for playing!")
+                print("The game has ended! Thank you for playing!")
+                break
+            case "GPTCODE_SCORE":  # match "score"
+                event = Event()
+                event_queue.put(event)
+                event.wait()
+                score = point_queue.get()
+                generate_tts(f"Your current score is {score} points.")
+                print(f"Your current score is {score} points.")
+            case "GPTCODE_TURN_LEFT":
+                robot_commander.send_command("LEFT")
+                generate_tts("Turning left")
+                print("Turning left")
+            case _:  # match "unsure"
+                generate_tts("I couldn't understand your intent. Please try again.")
+                print("I couldn't understand your intent. Please try again.")
 
         # if "stop" in client_input:
         #    generate_tts("Ending the session. Goodbye!")
