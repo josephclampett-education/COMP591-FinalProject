@@ -171,6 +171,7 @@ def listen_and_respond(point_queue, event_queue):
                 generate_tts("The game continues!")
                 print("The game continues!")
             case "GPTCODE_END":  # match "end"
+                robot_commander.send_command("END")
                 generate_tts("The game has ended! Thank you for playing!")
                 print("The game has ended! Thank you for playing!")
                 break
