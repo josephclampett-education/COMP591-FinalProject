@@ -4,23 +4,6 @@ from enum import Enum
 import Location
 from Location import Position
 
-class Regiment:
-    def __init__(self):
-        self.steps = deque()
-
-    def add_step(step: Step):
-        steps.append(step)
-
-    def get_next_step(robot_location: Location.RobotLocation):
-        if len(steps) > 0:
-            next = steps.popleft()
-            match next:
-                case Collection():
-                    next.current_birdie = robot_location
-            return next
-        else:
-            return None
-
 class Step:
     pass
 
@@ -52,3 +35,20 @@ class StationaryTarget(Step):
     def __init__(self, hit_type: HitType, position: Position):
         self.hit_type = hit_type
         self.position = position
+
+class Regiment:
+    def __init__(self):
+        self.steps = deque()
+
+    def add_step(self, step: Step):
+        self.steps.append(step)
+
+    def get_next_step(self, robot_location: Location.RobotLocation):
+        if len(steps) > 0:
+            next = self.steps.popleft()
+            match next:
+                case Collection():
+                   next.current_birdie = robot_location
+            return next
+        else:
+            return None
