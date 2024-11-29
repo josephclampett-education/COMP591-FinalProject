@@ -7,6 +7,8 @@ import asyncio
 from queue import Queue
 from threading import Event, Thread
 
+import RobotCommander
+
 # Initialize OpenAI client
 OpenAI.api_key = dotenv_values('.env')["API_KEY"]
 client = OpenAI(api_key=OpenAI.api_key)
@@ -105,7 +107,9 @@ def process_user_input(user_input):
         "continue": "GPTCODE_CONTINUE",
         "end": "GPTCODE_END",
         "score": "GPTCODE_SCORE",
-        "unsure": "GPTCODE_UNSURE"
+        "unsure": "GPTCODE_UNSURE",
+        "left": "GPTCODE_TURN_LEFT",
+        "right": "GPTCODE_TURN_RIGHT"
     }
 
     # 创建用于意图解析的 Prompt
@@ -149,6 +153,9 @@ def listen_and_respond(point_queue, event_queue):
                  and the second round is to practice badminton hitting techniques.
                  Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.
                   """)
+
+    robot_commander = RobotCommander.RobotCommander()
+
     while True:
         client_input = listen()
         # await asyncio.sleep(1)
@@ -178,6 +185,10 @@ def listen_and_respond(point_queue, event_queue):
                 robot_commander.send_command("LEFT")
                 generate_tts("Turning left")
                 print("Turning left")
+            case "GPTCODE_TURN_RIGHT":
+                robot_commander.send_command("RIGHT")
+                generate_tts("Turning right")
+                print("Turning right")
             case _:  # match "unsure"
                 generate_tts("I couldn't understand your intent. Please try again.")
                 print("I couldn't understand your intent. Please try again.")
