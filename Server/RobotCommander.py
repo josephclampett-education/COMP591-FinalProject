@@ -13,10 +13,10 @@ class RobotCommander:
             print(f"Connection failed: {e}")
         print("Connected!")
 
-    def send_command(self, command):
+    def send_command(self, cmd):
         # commands = ["FORWARD", "LEFT", "MOVE 100 100", "STOP"]
         # for cmd in commands:
-        print(f"Sending: {cmd}")
         self.mbox.send(cmd)
+        print(f"Sending: {cmd}")
         self.mbox.wait()  # Wait for EV3's confirmation
         print("Response:", self.mbox.read())
