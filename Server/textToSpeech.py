@@ -109,16 +109,19 @@ def process_user_input(user_input):
         "score": "GPTCODE_SCORE",
         "unsure": "GPTCODE_UNSURE",
         "left": "GPTCODE_TURN_LEFT",
-        "right": "GPTCODE_TURN_RIGHT"
+        "right": "GPTCODE_TURN_RIGHT",
+        "grab": "GPTCODE_GRAB"
     }
 
     # 创建用于意图解析的 Prompt
     prompt = f"""
-    User input: "{user_input}".
-    Determine the user's intent based on these rules:
+    The user will send requests to control a robot. Please respond only with one of the following commands: "{', '.join(UNIQUE_KEYWORDS.values())}"
     - To continue the game, return: "{UNIQUE_KEYWORDS['continue']}".
     - To end the game, return: "{UNIQUE_KEYWORDS['end']}".
     - To ask about the score or points (e.g., "What is my current score?", "How many points do I have?", etc.), return: "{UNIQUE_KEYWORDS['score']}".
+    - To turn the robot left, return: "{UNIQUE_KEYWORDS['left']}
+    - To turn the robot right, return: "{UNIQUE_KEYWORDS['right']}
+    - To grab things with the robot, return: "{UNIQUE_KEYWORDS['grab']}
     - If the intent is unclear, return: "{UNIQUE_KEYWORDS['unsure']}".
     Respond with only one of these identifiers: "{', '.join(UNIQUE_KEYWORDS.values())}".
     """
@@ -126,8 +129,8 @@ def process_user_input(user_input):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are an assistant that helps identify user intent."},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_input}
         ],
         max_tokens=10,
         temperature=0
@@ -143,7 +146,7 @@ def process_user_input(user_input):
 
 
 # Speech recognition and command handling
-def listen_and_respond(point_queue, event_queue):
+def listen_and_respond(point_queue, event_queue, robot_commander):
     print("""Hello, I am your badminton practice partner, and you can call me PiPi.
                  We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton,
                  and the second round is to practice badminton hitting techniques.
@@ -153,8 +156,6 @@ def listen_and_respond(point_queue, event_queue):
                  and the second round is to practice badminton hitting techniques.
                  Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.
                   """)
-
-    robot_commander = RobotCommander.RobotCommander()
 
     while True:
         client_input = listen()
@@ -190,6 +191,10 @@ def listen_and_respond(point_queue, event_queue):
                 robot_commander.send_command("RIGHT")
                 generate_tts("Turning right")
                 print("Turning right")
+            case "GPTCODE_GRAB":
+                robot_commander.send_command("GRAB")
+                generate_tts("Using grabber")
+                print("Using grabber")
             case _:  # match "unsure"
                 generate_tts("I couldn't understand your intent. Please try again.")
                 print("I couldn't understand your intent. Please try again.")

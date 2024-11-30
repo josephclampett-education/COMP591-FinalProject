@@ -8,6 +8,7 @@ import math
 import asyncio
 from queue import Queue
 from threading import Event, Thread
+import RobotCommander
 
 birdie_length = 5 # TODO
 robot_length = 10 # TODO center of robot to gripper tip
@@ -46,15 +47,18 @@ def main():
     # prev_birdie_positions = None
     # prev_robot_location = None
 
-    regiment: Regiment.Regiment = game.get_next_regiment()
-    current_step = regiment.get_next_step()
+    # regiment: Regiment.Regiment = game.get_next_regiment()
+    # current_step = regiment.get_next_step()
+
+    robot_commander = RobotCommander.RobotCommander()
+
+    # robot_commander.send_command("GRAB")
 
     realsense = RealsenseServer.RealsenseServer(42) # TODO
     event_queue = Queue()
     point_queue = Queue()
-    textToSpeechThread = Thread(target=textToSpeech.listen_and_respond, args=(point_queue, event_queue))
+    textToSpeechThread = Thread(target=textToSpeech.listen_and_respond, args=(point_queue, event_queue, robot_commander))
     textToSpeechThread.start()
-    # textToSpeechTask = asyncio.to_thread(textToSpeech.listen_and_respond(point_queue, event_queue))
 
     points = 0
 
@@ -69,20 +73,22 @@ def main():
             event.set()
 
         realsense.detect()
+
+
         # robot_location: Location.RobotLocation = None
         # birdie_positions: list[Location.BirdiePosition] = RealsenseServer.detect_birdies()
 
-        match current_step:
-            case Regiment.Rule():
-                break
-            case Regiment.MovingTarget():
-                break
-            case Regiment.StationaryTarget():
-                break
-            case Regiment.Collection():
-                if has_collected(robot_location, current_step.current_birdie):
-                    remaining_birdies = filter(lambda pos: not has_collected(robot_location, pos), birdie_positions)
-                    current_step.current_birdie = None # TODO
+        # match current_step:
+        #     case Regiment.Rule():
+        #         break
+        #     case Regiment.MovingTarget():
+        #         break
+        #     case Regiment.StationaryTarget():
+        #         break
+        #     case Regiment.Collection():
+        #         if has_collected(robot_location, current_step.current_birdie):
+        #             remaining_birdies = filter(lambda pos: not has_collected(robot_location, pos), birdie_positions)
+        #             current_step.current_birdie = None # TODO
     print("a")
 
 main()
