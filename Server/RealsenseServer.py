@@ -288,11 +288,25 @@ class RealsenseServer:
                 self.birdie_positions = self.birdie_positions.drop(self.birdie_positions.index)
 
                 """
-
+        
+        ### Court border tracking code ###
+        colors = [(0, 0, 255), (0, 255, 0), (0, 255, 255), (255, 255, 0)]
+        for i in range(court_corners_RS.shape[0]):
+                court_corner = court_corners_RS[i]
+                print(court_corners_RS)
+                print("test", court_corner)
+                cv2.circle(images, center=(int(court_corner[0]), int(court_corner[1])), radius=2, color=colors[i], thickness=2)
+                
+                fontScale = 2.3
+                fontFace = cv2.FONT_HERSHEY_PLAIN
+                fontColor = (0, 255, 0)
+                fontThickness = 2
+                cv2.putText(images, f"ID: 10", (0, 0), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+       
             # Show images
-            cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-            cv2.imshow('RealSense', images)
-            cv2.waitKey(1)
+        cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('RealSense', images)
+        cv2.waitKey(1)
 
         # ==== DEBUG END ====
 
