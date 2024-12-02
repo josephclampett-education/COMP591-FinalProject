@@ -5,14 +5,14 @@ LENGTH = 13.4  # in meters
 SCALE = 10
 
 class BadmintonCourt:
-    def __init__(self, aruco_corners):
+    def __init__(self):
         """
         Initialize the BirdieCourt class with the court corners.
 
         Parameters:
         court_corners (list of tuple): A list of four tuples representing the court corners' (x, y, z) coordinates.
         """
-        self.court_corners = self.calculate_court_corners(aruco_corners)
+        self.court_corners = []
 
     def calculate_court_corners(self, aruco_corners):
         """
@@ -44,7 +44,7 @@ class BadmintonCourt:
         court_cornerC = (SCALE * LENGTH * vDC) + court_cornerD
         court_cornerB = court_cornerA + court_cornerC - court_cornerD
 
-        return np.array([court_cornerA, court_cornerB, court_cornerC, court_cornerD])
+        self.court_corners = [court_cornerA, court_cornerB, court_cornerC, court_cornerD]
     
 
     def is_inside(self, birdie_pos):

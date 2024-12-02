@@ -6,10 +6,19 @@ import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from Server.Vision.RobotTracking import RobotTracking
+from Server.Vision.BadmintonCourt import BadmintonCourt
+"""
+This class is used to track:
+    - the robot position (aruco marker)
+    - the court position (all relevant points) (aruco marker)
+    - the birdie positions (timestep, id, x, y, z)
 
+This class exposes the information of the objects.
+"""
 class RealsenseServer:
 
-    def __init__(self, robotArucoId):
+    def __init__(self, robotArucoId, courtArucoId):
         # ================
         # Data
         # ================
@@ -23,6 +32,9 @@ class RealsenseServer:
         self.MarkerAges = np.full(250, -1)
         self.CurrentTime = 0
         self.robotArucoId = robotArucoId
+        self.courtArucoId = courtArucoId
+        self.robotTracking = RobotTracking()
+        self.court = BadmintonCourt()
 
         # Config
         self.LIFETIME_THRESHOLD = 3
@@ -66,26 +78,33 @@ class RealsenseServer:
         background = np.asanyarray(color_frame.get_data())
         self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
+        # TODO: Test this code!#################################
+        # Retrieve camera intrinsics
+        color_intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
+        self.camera_matrix = np.array([[color_intrinsics.fx, 0, color_intrinsics.ppx],
+                                       [0, color_intrinsics.fy, color_intrinsics.ppy],
+                                       [0, 0, 1]])
+        self.dist_coeffs = np.array([color_intrinsics.coeffs])
+        #########################################################
 
         ### Store the birdie positions
         self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
 
-    # Find theta angle (angle on x-axis between top left and top right corner)
-    def aruco_angle(self, corner_top_left, corner_top_right):
-        delta_x = (corner_top_right[0] - corner_top_left[0])
-        delta_y = (corner_top_right[1] - corner_top_left[1])
-        #print(delta_x, delta_y)
-        theta = np.atan(np.array(delta_y), np.array(delta_x))
-        return theta, delta_x, delta_y
+    # Find theta angle (angle on y-axis between top left and bottom left corner)
+    def aruco_angle(self, corner_top_left, corner_bottom_left):
+        delta_x = (corner_bottom_left[0] - corner_top_left[0])
+        delta_y = (corner_bottom_left[1] - corner_top_left[1])
+        theta = np.arctan2(delta_y, delta_x)
+        return theta
 
 
-
+    # This function detects aruco markers and birdies and store stheir positions
     def detect(self):
         # ==== FRAME QUERYING ====
         frames = self.pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
-        if not depth_frame or not color_frame:
+        if not depth_frame or not color_frame
             return
         color_image = np.asanyarray(color_frame.get_data())
 
@@ -109,12 +128,26 @@ class RealsenseServer:
             self.MarkerCentroids[id] = centerRS
             if self.MarkerAges[id] != -2:
                 self.MarkerAges[id] = self.CurrentTime
-
-            theta, delta_x, delta_y = self.aruco_angle(cornerSet[0], cornerSet[1])
-            if self.CurrentTime % 100 == 0:
-                print("theta", np.rad2deg(theta))
-                print("xdelta", delta_x)
-                print("ydelta", delta_y)
+            
+            if id == self.robotArucoId:
+                print("Robot position: ", centerRS)
+                bottom_left = cornerSet[3]
+                top_left = cornerSet[0]
+                bottom_left = cornerSet[3]
+                theta = self.aruco_angle(top_left, bottom_left)
+                self.robotTracking.update_orientation(theta)
+                self.robotTracking.update_position(centerRS)
+            elif id == self.courtArucoId:
+                print("Court position: ", centerRS)
+                self.court.calculate_court_corners(cornerSet)
+            else:
+                print("Unidentified aruco marker at: ", centerRS)
+            
+            #theta, delta_x, delta_y = self.aruco_angle(cornerSet[0], cornerSet[1])
+            #if self.CurrentTime % 100 == 0:
+            #    print("theta", np.rad2deg(theta))
+            #    print("xdelta", delta_x)
+            #    print("ydelta", delta_y)
 
         # ==== Process all incoming markers ====
         outLiveMarkerIds = []

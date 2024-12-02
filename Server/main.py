@@ -1,6 +1,6 @@
 from collections import deque
 
-import RealsenseServer
+import Server.Vision.RealsenseServer as RealsenseServer
 import textToSpeech
 import Location
 import Regiment
