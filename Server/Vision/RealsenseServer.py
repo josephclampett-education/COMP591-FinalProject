@@ -6,8 +6,9 @@ import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from Server.Vision.RobotTracking import RobotTracking
-from Server.Vision.BadmintonCourt import BadmintonCourt
+from Server.Vision.Court import Court
+from Server.Location import RobotLocation, BirdieLocation
+from typing import List
 """
 This class is used to track:
     - the robot position (aruco marker)
@@ -33,8 +34,9 @@ class RealsenseServer:
         self.CurrentTime = 0
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
-        self.robotTracking = RobotTracking()
-        self.court = BadmintonCourt()
+        self.robot: RobotLocation
+        self.birdies: List[BirdieLocation] = []
+        self.court: Court
 
         # Config
         self.LIFETIME_THRESHOLD = 3
@@ -104,7 +106,7 @@ class RealsenseServer:
         frames = self.pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
-        if not depth_frame or not color_frame
+        if not depth_frame or not color_frame:
             return
         color_image = np.asanyarray(color_frame.get_data())
 
@@ -135,11 +137,10 @@ class RealsenseServer:
                 top_left = cornerSet[0]
                 bottom_left = cornerSet[3]
                 theta = self.aruco_angle(top_left, bottom_left)
-                self.robotTracking.update_orientation(theta)
-                self.robotTracking.update_position(centerRS)
+                self.robot = RobotLocation.__init__(*centerRS, theta)
             elif id == self.courtArucoId:
                 print("Court position: ", centerRS)
-                self.court.calculate_court_corners(cornerSet)
+                self.court = Court.__init__(cornerSet)
             else:
                 print("Unidentified aruco marker at: ", centerRS)
             

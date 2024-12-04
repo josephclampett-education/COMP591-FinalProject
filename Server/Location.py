@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 class Position:
     def __init__(self, x, y, z):
@@ -54,3 +55,51 @@ class RobotLocation(Position, Orientation):
             self.y + self._grabber_length * math.sin(self.angle),
             self.z
             )
+    
+
+class CourtLocation():
+    WIDTH = 6.1  # in meters
+    LENGTH = 13.4  # in meters
+    SCALE = 10
+
+    def __init__(self, aruco_corners):
+        self.A, self.B, self.C, self.D = self.calculate_court_corners(aruco_corners)
+        
+
+    def calculate_court_corners(self, aruco_corners):
+        """
+        Calculate the court corners based on the ArUco corners.
+        """
+
+        cornerA = aruco_corners[0]
+        cornerB = aruco_corners[1]
+        cornerC = aruco_corners[2]
+        cornerD = aruco_corners[3]
+
+        # Find the vectors DA and DC and normalize them to a scale of 1
+        dDA_x = cornerA[0] - cornerD[0]
+        dDA_y = cornerA[1] - cornerD[1]
+
+        vDA_norm = np.linalg.norm([dDA_x, dDA_y])
+        vDA = np.array([dDA_x, dDA_y, 0]) / vDA_norm
+
+        dDC_x = cornerC[0] - cornerD[0]
+        dDC_y = cornerC[1] - cornerD[1]
+        vDC_norm = np.linalg.norm([dDC_x, dDC_y])
+        vDC = np.array([dDC_x, dDC_y, 0]) / vDC_norm
+
+        # Calculate the court corners
+        court_cornerD = cornerD
+        print(vDA)
+        print(court_cornerD)
+        court_cornerA = (self.SCALE * self.WIDTH * vDA) + court_cornerD
+        court_cornerC = (self.SCALE * self.LENGTH * vDC) + court_cornerD
+        court_cornerB = court_cornerA + court_cornerC - court_cornerD
+        
+        court_cornerA = Position.__init__(*court_cornerA, 0)
+        court_cornerB = Position.__init__(*court_cornerB, 0)
+        court_cornerC = Position.__init__(*court_cornerC, 0)
+        court_cornerD = Position.__init__(*court_cornerD, 0)
+
+        return court_cornerA, court_cornerB, court_cornerC, court_cornerD
+    

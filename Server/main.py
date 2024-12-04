@@ -53,7 +53,6 @@ def main():
     robot_commander = RobotCommander.RobotCommander()
 
     # robot_commander.send_command("GRAB")
-
     realsense = RealsenseServer.RealsenseServer(42) # TODO
     event_queue = Queue()
     point_queue = Queue()
@@ -74,7 +73,7 @@ def main():
 
         realsense.detect()
 
-
+        
         # robot_location: Location.RobotLocation = None
         # birdie_positions: list[Location.BirdiePosition] = RealsenseServer.detect_birdies()
 
