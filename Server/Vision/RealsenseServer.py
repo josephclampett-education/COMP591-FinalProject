@@ -6,9 +6,11 @@ import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from typing import Dict
+
+from Server.Location import RobotLocation
 from Server.Vision.Court import Court
-from Server.Location import RobotLocation, BirdieLocation
-from typing import List
+from Server.Vision.Birdie import Birdie
 """
 This class is used to track:
     - the robot position (aruco marker)
@@ -23,10 +25,6 @@ class RealsenseServer:
         # ================
         # Data
         # ================
-        # Sequence
-        self.DEBUG = False
-        self.DEBUG = True
-
         # State
         # CalibrationMatrix = np.zeros((4, 4))
         self.MarkerCentroids = np.zeros((250, 3))
@@ -35,7 +33,8 @@ class RealsenseServer:
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
         self.robot: RobotLocation
-        self.birdies: List[BirdieLocation] = []
+        self.birdies: Dict[Birdie] = {}
+        self.next_birdie_id = 0
         self.court: Court
 
         # Config
@@ -80,28 +79,12 @@ class RealsenseServer:
         background = np.asanyarray(color_frame.get_data())
         self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
-        # TODO: Test this code!#################################
-        # Retrieve camera intrinsics
-        color_intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
-        self.camera_matrix = np.array([[color_intrinsics.fx, 0, color_intrinsics.ppx],
-                                       [0, color_intrinsics.fy, color_intrinsics.ppy],
-                                       [0, 0, 1]])
-        self.dist_coeffs = np.array([color_intrinsics.coeffs])
-        #########################################################
-
-        ### Store the birdie positions
-        self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
-
-    # Find theta angle (angle on y-axis between top left and bottom left corner)
-    def aruco_angle(self, corner_top_left, corner_bottom_left):
-        delta_x = (corner_bottom_left[0] - corner_top_left[0])
-        delta_y = (corner_bottom_left[1] - corner_top_left[1])
-        theta = np.arctan2(delta_y, delta_x)
-        return theta
+        ### Store the birdie positions # TODO Review if still need
+        #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
 
 
     # This function detects aruco markers and birdies and store stheir positions
-    def detect(self):
+    def detect(self, visualize=True):
         # ==== FRAME QUERYING ====
         frames = self.pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
@@ -111,10 +94,10 @@ class RealsenseServer:
         color_image = np.asanyarray(color_frame.get_data())
 
         # ==== MARKER TRACKING ====
-        corners, ids, rejected = self.arucoDetector.detectMarkers(color_image)
+        aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
         depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
 
-        for i, cornerSet in enumerate(corners):
+        for i, cornerSet in enumerate(aruco_corners):
             assert(cornerSet.shape[0] == 1)
             cornerSet = cornerSet[0, ...]
 
@@ -126,7 +109,7 @@ class RealsenseServer:
 
             centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
 
-            id = ids[i][0]
+            id = aruco_ids[i][0]
             self.MarkerCentroids[id] = centerRS
             if self.MarkerAges[id] != -2:
                 self.MarkerAges[id] = self.CurrentTime
@@ -144,12 +127,7 @@ class RealsenseServer:
             else:
                 print("Unidentified aruco marker at: ", centerRS)
             
-            #theta, delta_x, delta_y = self.aruco_angle(cornerSet[0], cornerSet[1])
-            #if self.CurrentTime % 100 == 0:
-            #    print("theta", np.rad2deg(theta))
-            #    print("xdelta", delta_x)
-            #    print("ydelta", delta_y)
-
+        
         # ==== Process all incoming markers ====
         outLiveMarkerIds = []
         outLiveMarkerPositionsRS = []
@@ -171,24 +149,7 @@ class RealsenseServer:
             outLiveMarkerPositionsRS.append(outCentroidRS)
 
 
-
-        # ==== DEBUG START ====
-        if self.DEBUG:
-            color_image = cv2.aruco.drawDetectedMarkers(color_image,corners,ids)
-            depth_image = np.asanyarray(depth_frame.get_data())
-            depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
-
-            depth_colormap_dim = depth_colormap.shape
-            color_colormap_dim = color_image.shape
-
-            # If depth and color resolutions are different, resize color image to match depth image for display
-            if depth_colormap_dim != color_colormap_dim:
-                resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
-                images = np.hstack((resized_color_image, depth_colormap))
-            else:
-                images = np.hstack((color_image, depth_colormap))
-
-            ### Birdie Tracking Code ###
+            ### --- Birdie Tracking Code --- ###
             ### information ###
             # x is the width value. Center of camera is 0 width right going positiv
             # y is the height value. Center of camera is 0 width downwards going positiv
@@ -215,38 +176,84 @@ class RealsenseServer:
 
             # Find contours of the birdies
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            id_counter = 0
+            new_birdies = {}
             for contour in contours:
                 if cv2.contourArea(contour) > 50:  # Filter small blobs
-                    # Asign an id to the contour object
-                    birdie_id = id_counter
-                    id_counter += 1
 
                     x, y, w, h = cv2.boundingRect(contour)
                     centerSS = (int(x + w/2), int(y + h/2))
                     centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
                     centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
 
+                    # Finded the closest existing Birdie to the current birdie position
+                    closest_birdie = self.find_closest_birdie(centerRS)
+                    if closest_birdie:
+                        # Update existing birdie
+                        closest_birdie.update(*centerRS, centerZ, (x,y,w,h), contour)
+                        new_birdies[closest_birdie.id] = closest_birdie
+                    else:
+                        # Create new birdie
+                        birdie_id = self.next_birdie_id
+                        new_birdie = Birdie(birdie_id, *centerRS, centerZ, 0, False, (x, y, w, h), contour)
+                        new_birdies[birdie_id] = new_birdie
+                        self.next_birdie_id += 1
+
+
+                    # Save birdie information in data struct
+                    self.birdies = new_birdies
+
                     # Append to DataFrame
-                    new_row = pd.DataFrame([{
-                        'frame': self.CurrentTime,
-                        'id': birdie_id,
-                        'x': centerRS[0],
-                        'y': centerRS[1],
-                        'z': centerZ
-                    }])
+                    #new_row = pd.DataFrame([{
+                    #    'frame': self.CurrentTime,
+                    #    'id': birdie_id,
+                    #    'x': centerRS[0],
+                    #    'y': centerRS[1],
+                    #    'z': centerZ
+                    #}])
 
                     # Use pd.concat() to add the new row to the DataFrame
-                    self.birdie_positions = pd.concat([self.birdie_positions, new_row], ignore_index=True)
+                    #self.birdie_positions = pd.concat([self.birdie_positions, new_row], ignore_index=True)
 
 
-                    fontScale = 2.3
-                    fontFace = cv2.FONT_HERSHEY_PLAIN
-                    fontColor = (0, 255, 0)
-                    fontThickness = 2
-                    cv2.putText(color_image, f"ID: {birdie_id}", (x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-                    cv2.putText(color_image, str(round(centerZ, 2)), centerSS, fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-                    cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # ==== Visualize ==== #
+        if visualize:
+
+            # Draw aruco markers for robot and field court
+            color_image = cv2.aruco.drawDetectedMarkers(color_image,aruco_corners,aruco_ids)
+            depth_image = np.asanyarray(depth_frame.get_data())
+            depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+
+            depth_colormap_dim = depth_colormap.shape
+            color_colormap_dim = color_image.shape
+
+            # If depth and color resolutions are different, resize color image to match depth image for display
+            if depth_colormap_dim != color_colormap_dim:
+                resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
+                images = np.hstack((resized_color_image, depth_colormap))
+            else:
+                images = np.hstack((color_image, depth_colormap))
+
+           
+            # Drawing params
+            fontScale = 2.3
+            fontFace = cv2.FONT_HERSHEY_PLAIN
+            fontColor = (0, 255, 0)
+            fontThickness = 2
+            length = 50
+
+            for birdie in self.birdies.values():
+                _, _, w, h = birdie.bounding_rect
+                cv2.putText(color_image, f"ID: {birdie.id}", (birdie.x, birdie.y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
+                cv2.putText(color_image, str(round(centerZ, 2)), (birdie.x, birdie.y), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                cv2.rectangle(color_image, (birdie.x, birdie.y), (birdie.x + w, birdie.y + h), (0, 255, 0), 2)
+                
+                # TODO Validate result
+                
+                end_x = int(birdie.x + length * np.cos(np.radians(birdie.orientation)))
+                end_y = int(birdie.y + length * np.sin(np.radians(birdie.orientation)))
+                cv2.line(self.color_image, (birdie.x, birdie.y), (end_x, end_y), (255, 0, 0), 2)
 
             """
             if self.CurrentTime == 200:
@@ -348,3 +355,23 @@ class RealsenseServer:
         # ==== DEBUG END ====
 
         self.CurrentTime += 1
+    
+
+    # --- Helper Methods --- #
+    def find_closest_birdie(self, centerRS, threshold=0.1):
+        closest_birdie = None
+        min_distance = float('inf')
+        for birdie in self.birdies.values():
+            distance = np.linalg.norm(np.array([birdie.x, birdie.y, birdie.z]) - np.array(centerRS))
+            if distance < min_distance and distance < threshold:
+                min_distance = distance
+                closest_birdie = birdie
+        return closest_birdie
+
+    
+    # Find theta angle (angle on y-axis between top left and bottom left corner)
+    def aruco_angle(self, corner_top_left, corner_bottom_left):
+        delta_x = (corner_bottom_left[0] - corner_top_left[0])
+        delta_y = (corner_bottom_left[1] - corner_top_left[1])
+        theta = np.arctan2(delta_y, delta_x)
+        return theta

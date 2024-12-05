@@ -71,7 +71,7 @@ def main():
             point_queue.put(points)
             event.set()
 
-        realsense.detect()
+        realsense.detect(visualize=True)
 
         
         # robot_location: Location.RobotLocation = None
