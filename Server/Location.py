@@ -20,10 +20,13 @@ class Position:
     def __eq__(self, other):
         return isinstance(other, self.__class__) and (self.x, self.y, self.z) == (other.x, other.y, other.z)
 
-    # Returns the angle bewteen two Positions in radians
-    def angle_between(self, other):
-        temp = other - self
-        return math.atan2(temp.y, temp.x)
+    def is_close(self, other):
+        diff = self - other
+        return math.sqrt(diff.x**2 + diff.y**2 + diff.z**2) < 20 # TODO: threshold
+
+    def flat_distance(self, other):
+        diff = self - other
+        return math.sqrt(diff.x**2 + diff.y**2 )
 
 class Orientation:
     # angle in radians
@@ -55,7 +58,12 @@ class RobotLocation(Position, Orientation):
             self.y + self._grabber_length * math.sin(self.angle),
             self.z
             )
-    
+
+    # returns the angle the robot has to turn to face other
+    def angle_to(self, other):
+        temp = other - self
+        return math.atan2(temp.y, temp.x) - self.angle
+
 
 class CourtLocation():
     WIDTH = 6.1  # in meters
@@ -64,7 +72,7 @@ class CourtLocation():
 
     def __init__(self, aruco_corners):
         self.A, self.B, self.C, self.D = self.calculate_court_corners(aruco_corners)
-        
+
 
     def calculate_court_corners(self, aruco_corners):
         """
@@ -95,11 +103,10 @@ class CourtLocation():
         court_cornerA = (self.SCALE * self.WIDTH * vDA) + court_cornerD
         court_cornerC = (self.SCALE * self.LENGTH * vDC) + court_cornerD
         court_cornerB = court_cornerA + court_cornerC - court_cornerD
-        
+
         court_cornerA = Position.__init__(*court_cornerA, 0)
         court_cornerB = Position.__init__(*court_cornerB, 0)
         court_cornerC = Position.__init__(*court_cornerC, 0)
         court_cornerD = Position.__init__(*court_cornerD, 0)
 
         return court_cornerA, court_cornerB, court_cornerC, court_cornerD
-    

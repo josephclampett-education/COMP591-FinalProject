@@ -1,11 +1,9 @@
 import Server.Location as Location
 import math
+from operator import itemgetter
 
 def modN(x, N):
     return (x + N) % N
-
-def distance(first, second):
-    return math.sqrt((first.x - second.x) ** 2 + (first.y - second.y) ** 2)
 
 def within_circle(pos, center, radius):
     return (pos.x - center.x) ** 2 + (pos.y - center.y) ** 2 <= radius ** 2
@@ -16,14 +14,17 @@ def turning_left_possible(left_turning_angle, left_closest_angle):
 def turning_right_possible(right_turning_angle, right_closest_angle):
     return right_turning_angle > modN(right_closest_angle + Location.RobotLocation.grabber_angle, -2 * math.pi)
 
-# birdie could be between wheel and grabber
-# don't run over birdie with wheel
-# avoid pushing birdie away with grabber
+# Returns the best next collection target and which angle the robot has to turn in radians
 def next_collection_taget(robot_location: Location.RobotLocation, birdie_positions: list):
-    distance_sorted = sorted(birdie_positions, key=lambda birdie: distance(robot_location, birdie))
+    # birdie could be between wheel and grabber
+    # don't run over birdie with wheel
+    # avoid pushing birdie away with grabber
+    birdies_dist_angle = [(birdie, robot_location.flat_distance(birdie), abs(robot_location.angle_to(birdie))) for birdie in birdie_positions]
+    # Sort by distance and then by angle
+    distance_sorted = [birdie for birdie, dist, angle in sorted(birdies_dist_angle, key=itemgetter(1,2))]
     # All birdies that will be hit by the grabber if the robot turns
     too_close = [
-        (birdie, robot_location.angle_between(birdie) - robot_location.angle)
+        (birdie, robot_location.angle_to(birdie))
         for birdie in filter(
             lambda birdie: within_circle(birdie, robot_location, robot_location.center_to_grabber_tip),
             birdie_positions
@@ -40,10 +41,10 @@ def next_collection_taget(robot_location: Location.RobotLocation, birdie_positio
 
     if left_closest == None and right_closest == None:
         next_birdie = distance_sorted[0]
-        next_turning_angle = robot_location.angle_between(next_birdie)
+        next_turning_angle = robot_location.angle_to(next_birdie)
     elif len(too_close) < len(birdie_positions):
         for birdie in distance_sorted:
-            angle_relative_to_robot = robot_location.angle_between(birdie) - robot_location.angle
+            angle_relative_to_robot = robot_location.angle_to(birdie)
             left_turning_angle = modN(angle_relative_to_robot, 2 * math.pi)
             right_turning_angle = modN(angle_relative_to_robot, -2* math.pi)
             # check if turning the robot to the desired angle is possible without hitting other birdies
@@ -70,3 +71,16 @@ def next_collection_taget(robot_location: Location.RobotLocation, birdie_positio
         next_turning_angle = 0
 
     return (next_birdie, next_turning_angle)
+
+def main():
+    robot = Location.RobotLocation(0,0,0,0)
+    birdies = [Location.Position(0,0.1,0),
+               Location.Position(0,-1,0),
+               Location.Position(-1,0,0),
+               Location.Position(300, 0,0)]
+    next, angle = next_collection_taget(robot, birdies)
+    print(next)
+    print(angle)
+
+if __name__ == "__main__":
+    main()

@@ -20,6 +20,9 @@ class TestPathPlanning(unittest.TestCase):
             self.robot.z
             )
 
+        self.robot45 = L.RobotLocation(0,0,0,math.radians(45))
+        self.robot_pos_angle = L.RobotLocation(2,5,0,math.radians(137))
+
     def testOneBirdie(self):
         (next_birdie, next_angle) = P.next_collection_taget(self.robot, [self.birdie45])
         self.assertEqual(next_birdie, self.birdie45)
@@ -68,6 +71,21 @@ class TestPathPlanning(unittest.TestCase):
         self.assertEqual(next_birdie, self.straight)
         self.assertAlmostEqual(next_angle, 0)
 
+    def testAngles(self):
+        (next_birdie, next_angle) = P.next_collection_taget(self.robot45, [self.birdie45])
+        self.assertEqual(next_birdie, self.birdie45)
+        self.assertAlmostEqual(next_angle, 0)
+
+    def testAngles2(self):
+        (next_birdie, next_angle) = P.next_collection_taget(self.robot45, [self.birdie70])
+        self.assertEqual(next_birdie, self.birdie70)
+        self.assertAlmostEqual(next_angle, math.radians(70) - self.robot45.angle)
+
+    def testPosAndAngle(self):
+        birdie = L.BirdieLocation(60 + self.robot_pos_angle.x, 60 + self.robot_pos_angle.y, 0, 0, True)
+        (next_birdie, next_angle) = P.next_collection_taget(self.robot_pos_angle, [birdie])
+        self.assertEqual(next_birdie, birdie)
+        self.assertAlmostEqual(next_angle, math.radians(45) - self.robot_pos_angle.angle)
 
 if __name__ == '__main__':
     unittest.main()
