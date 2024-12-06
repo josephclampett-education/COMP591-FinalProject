@@ -38,15 +38,17 @@ print('connected!')
 while True:
     mbox.wait()
     command = mbox.read()
-        
+
     print('Read')
 
-    if command == "LEFT":
+    if command.startswith("LEFT"):
         print('LEFT')
-        robot.turn(-360)
-    elif command == "RIGHT":
+        angle = command.split()[1]
+        robot.turn(-int(angle))
+    elif command.startswith("RIGHT"):
         print('RIGHT')
-        robot.turn(360)
+        angle = command.split()[1]
+        robot.turn(int(angle))
     elif command == "END":
         print('END')
         ev3.speaker.beep()
@@ -55,9 +57,12 @@ while True:
         print('GRAB')
         grab_motor.run(-20)
         wait(100)
-    else:
-        print('STRAIGHT')
-        robot.straight(100)
+    elif command.startswith("FORWARD"):
+        print('FORWARD')
+        distance = command.split()[1]
+        robot.straight(int(distance))
+    elif command == "STOP":
+        robot.stop()
 
     print('PreSend')
     mbox.send('received' + command)
