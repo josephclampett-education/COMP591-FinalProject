@@ -83,6 +83,8 @@ class RealsenseServer:
         #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
 
 
+        self.HasTakenBackground = False
+
     # This function detects aruco markers and birdies and store stheir positions
     def detect(self, visualize=True):
         # ==== FRAME QUERYING ====
@@ -154,18 +156,37 @@ class RealsenseServer:
         # z is the deph value starting at 0 with increasing value with higher distance
         ### information ###
         # Convert current frame to grayscale
+
         gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+
+        cv2.namedWindow('DEBUG_gray_frame', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('DEBUG_gray_frame', gray_frame)
+
+        if not self.HasTakenBackground:
+            self.background = gray_frame
+            self.HasTakenBackground = True
+        
+        cv2.namedWindow('DEBUG_background', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('DEBUG_background', self.background)
 
         # Subtract background
         diff = cv2.absdiff(self.background, gray_frame)
 
+        cv2.namedWindow('DEBUG_diff', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('DEBUG_diff', diff)
+
         # Threshold to create a binary mask
-        _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
+        _, mask = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
+
+        cv2.namedWindow('DEBUG_mask', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('DEBUG_mask', mask)
+
         #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         #print(threshhold)
         # Apply morphological operations to clean the mask
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        cv2.waitKey(1)
 
         # Apply morphological closing to merge nearby contours
         # This kernelsize was chosen to merge the head and the feathers of the birdie into one object
