@@ -66,14 +66,16 @@ class RobotLocation(Position, Orientation):
 
 
 class CourtLocation():
-    WIDTH = 6.1  # in meters
-    LENGTH = 13.4  # in meters
-    SCALE = 10
+    WIDTH = 5.18 / 2  # in meters
+    LENGTH = 13.4 / 2  # in meters
+    MIDDLE_TO_SERVEZONE = 1.98 # in meters
+
+    SCALE = 40
 
     def __init__(self, aruco_corners):
         self.A, self.B, self.C, self.D = self.calculate_court_corners(aruco_corners)
 
-
+    
     def calculate_court_corners(self, aruco_corners):
         """
         Calculate the court corners based on the ArUco corners.

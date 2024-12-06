@@ -147,58 +147,59 @@ class RealsenseServer:
             outLiveMarkerPositionsRS.append(outCentroidRS)
 
 
-            ### --- Birdie Tracking Code --- ###
-            ### information ###
-            # x is the width value. Center of camera is 0 width right going positiv
-            # y is the height value. Center of camera is 0 width downwards going positiv
-            # z is the deph value starting at 0 with increasing value with higher distance
-            ### information ###
-            # Convert current frame to grayscale
-            gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+        ### --- Birdie Tracking Code --- ###
+        ### information ###
+        # x is the width value. Center of camera is 0 width right going positiv
+        # y is the height value. Center of camera is 0 width downwards going positiv
+        # z is the deph value starting at 0 with increasing value with higher distance
+        ### information ###
+        # Convert current frame to grayscale
+        gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
 
-            # Subtract background
-            diff = cv2.absdiff(self.background, gray_frame)
+        # Subtract background
+        diff = cv2.absdiff(self.background, gray_frame)
 
-            # Threshold to create a binary mask
-            _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
-            #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-            #print(threshhold)
-            # Apply morphological operations to clean the mask
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        # Threshold to create a binary mask
+        _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
+        #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        #print(threshhold)
+        # Apply morphological operations to clean the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
 
-            # Apply morphological closing to merge nearby contours
-            # This kernelsize was chosen to merge the head and the feathers of the birdie into one object
-            kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel2)
+        # Apply morphological closing to merge nearby contours
+        # This kernelsize was chosen to merge the head and the feathers of the birdie into one object
+        kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel2)
 
-            # Find contours of the birdies
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            new_birdies = {}
-            for contour in contours:
-                if cv2.contourArea(contour) > 50:  # Filter small blobs
+        # Find contours of the birdies
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        new_birdies = {}
+        for contour in contours:
+            print("contour")
+            if cv2.contourArea(contour) > 50:  # Filter small blobs
 
-                    x, y, w, h = cv2.boundingRect(contour)
-                    centerSS = (int(x + w/2), int(y + h/2))
-                    centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
-                    centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
+                x, y, w, h = cv2.boundingRect(contour)
+                centerSS = (int(x + w/2), int(y + h/2))
+                centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
+                centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
 
-                    # Finded the closest existing Birdie to the current birdie position
-                    closest_birdie = self.find_closest_birdie(centerRS)
-                    if closest_birdie:
-                        # Update existing birdie
-                        closest_birdie.update(*centerRS, (x,y,w,h), contour)
-                        new_birdies[closest_birdie.id] = closest_birdie
-                    else:
-                        # Create new birdie
-                        birdie_id = self.next_birdie_id
-                        new_birdie = Birdie(birdie_id, *centerRS, False, (x, y, w, h), contour)
-                        new_birdies[birdie_id] = new_birdie
-                        self.next_birdie_id += 1
+                # Finded the closest existing Birdie to the current birdie position
+                closest_birdie = self.find_closest_birdie(centerRS)
+                if closest_birdie:
+                    # Update existing birdie
+                    closest_birdie.update(*centerRS, (x,y,w,h), contour)
+                    new_birdies[closest_birdie.id] = closest_birdie
+                else:
+                    # Create new birdie
+                    birdie_id = self.next_birdie_id
+                    new_birdie = Birdie(birdie_id, *centerRS, False, (x, y, w, h), contour)
+                    new_birdies[birdie_id] = new_birdie
+                    self.next_birdie_id += 1
 
 
-                    # Save birdie information in data struct
-                    self.birdies = new_birdies
+                # Save birdie information in data struct
+                self.birdies = new_birdies
 
                     # Append to DataFrame
                     #new_row = pd.DataFrame([{
@@ -225,11 +226,11 @@ class RealsenseServer:
             length = 50
 
             for birdie in self.birdies.values():
-                _, _, w, h = birdie.bounding_rect
-                x, y = int(birdie.x), int(birdie.y)
-                cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                x, y, w, h = birdie.bounding_rect
+                bx, by = int(birdie.x), int(birdie.y)
+                cv2.putText(color_image, f"ID: {birdie.id}",(bx, by - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
-                cv2.putText(color_image, str(round(centerZ, 2)), (x, y), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                cv2.putText(color_image, str(round(centerZ, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
                 # TODO Validate result
