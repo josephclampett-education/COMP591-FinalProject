@@ -83,10 +83,22 @@ class RealsenseServer:
         #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
 
 
-        self.HasTakenBackground = False
-
     # This function detects aruco markers and birdies and store stheir positions
     def detect(self, visualize=True):
+        # Initialize the backround after a short delay
+        if self.CurrentTime == 50:
+            frames = self.pipeline.wait_for_frames()
+            color_frame = frames.get_color_frame()
+            background = np.asanyarray(color_frame.get_data())
+            self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+        if cv2.waitKey(1) & 0xFF == ord('r'):
+            print("reset at frame", self.CurrentTime)
+            # Reset background
+            frames = self.pipeline.wait_for_frames()
+            color_frame = frames.get_color_frame()
+            background = np.asanyarray(color_frame.get_data())
+            self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+
         # ==== FRAME QUERYING ====
         frames = self.pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
@@ -156,37 +168,18 @@ class RealsenseServer:
         # z is the deph value starting at 0 with increasing value with higher distance
         ### information ###
         # Convert current frame to grayscale
-
         gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
-
-        cv2.namedWindow('DEBUG_gray_frame', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('DEBUG_gray_frame', gray_frame)
-
-        if not self.HasTakenBackground:
-            self.background = gray_frame
-            self.HasTakenBackground = True
-        
-        cv2.namedWindow('DEBUG_background', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('DEBUG_background', self.background)
 
         # Subtract background
         diff = cv2.absdiff(self.background, gray_frame)
 
-        cv2.namedWindow('DEBUG_diff', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('DEBUG_diff', diff)
-
         # Threshold to create a binary mask
-        _, mask = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
-
-        cv2.namedWindow('DEBUG_mask', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('DEBUG_mask', mask)
-
+        _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
         #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         #print(threshhold)
         # Apply morphological operations to clean the mask
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        cv2.waitKey(1)
 
         # Apply morphological closing to merge nearby contours
         # This kernelsize was chosen to merge the head and the feathers of the birdie into one object
@@ -197,7 +190,6 @@ class RealsenseServer:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         new_birdies = {}
         for contour in contours:
-            print("contour")
             if cv2.contourArea(contour) > 50:  # Filter small blobs
 
                 x, y, w, h = cv2.boundingRect(contour)
@@ -248,17 +240,20 @@ class RealsenseServer:
 
             for birdie in self.birdies.values():
                 x, y, w, h = birdie.bounding_rect
-                bx, by = int(birdie.x), int(birdie.y)
-                cv2.putText(color_image, f"ID: {birdie.id}",(bx, by - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
+                cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
-                cv2.putText(color_image, str(round(centerZ, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
                 # TODO Validate result
                 
-                end_x = int(x + length * np.cos(np.radians(birdie.angle)))
-                end_y = int(y+ length * np.sin(np.radians(birdie.angle)))
-                cv2.line(color_image, (x, y), (end_x, end_y), (255, 0, 0), 2)
+                #end_x = int(bx + length * np.cos(np.radians(birdie.angle)))
+                #end_y = int(by+ length * np.sin(np.radians(birdie.angle)))
+                #cv2.line(color_image, (bx, by), (end_x, end_y), (255, 0, 0), 2)
+                #if self.CurrentTime % 20 == 0:
+                    #print("Birdie", birdie.id, bx, birdie.x, by, birdie.y)
+                    #print(x,y)
 
             """
             if self.CurrentTime == 200:
@@ -385,6 +380,7 @@ class RealsenseServer:
         
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', images)
+        cv2.imshow("Mask", mask)
         cv2.waitKey(1)
 
         # ==== DEBUG END ====
