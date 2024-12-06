@@ -89,24 +89,22 @@ class CourtLocation():
         dDA_y = cornerA[1] - cornerD[1]
 
         vDA_norm = np.linalg.norm([dDA_x, dDA_y])
-        vDA = np.array([dDA_x, dDA_y, 0]) / vDA_norm
+        vDA = np.array([dDA_x, dDA_y]) / vDA_norm
 
         dDC_x = cornerC[0] - cornerD[0]
         dDC_y = cornerC[1] - cornerD[1]
         vDC_norm = np.linalg.norm([dDC_x, dDC_y])
-        vDC = np.array([dDC_x, dDC_y, 0]) / vDC_norm
+        vDC = np.array([dDC_x, dDC_y]) / vDC_norm
 
         # Calculate the court corners
         court_cornerD = cornerD
-        print(vDA)
-        print(court_cornerD)
         court_cornerA = (self.SCALE * self.WIDTH * vDA) + court_cornerD
         court_cornerC = (self.SCALE * self.LENGTH * vDC) + court_cornerD
         court_cornerB = court_cornerA + court_cornerC - court_cornerD
 
-        court_cornerA = Position.__init__(*court_cornerA, 0)
-        court_cornerB = Position.__init__(*court_cornerB, 0)
-        court_cornerC = Position.__init__(*court_cornerC, 0)
-        court_cornerD = Position.__init__(*court_cornerD, 0)
+        court_cornerA = Position(*court_cornerA, 0)
+        court_cornerB = Position(*court_cornerB, 0)
+        court_cornerC = Position(*court_cornerC, 0)
+        court_cornerD = Position(*court_cornerD, 0)
 
         return court_cornerA, court_cornerB, court_cornerC, court_cornerD

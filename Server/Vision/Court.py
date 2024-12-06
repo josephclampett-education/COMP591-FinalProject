@@ -1,13 +1,15 @@
 import numpy as np
 from Server.Location import CourtLocation, BirdieLocation
 
-WIDTH = 6.1  # in meters
-LENGTH = 13.4  # in meters
+WIDTH = 5.18 / 2  # in meters
+LENGTH = 13.4 / 2  # in meters
+MIDDLE_TO_SERVEZONE = 1.98 # in meters
+
 SCALE = 10
 
 class Court(CourtLocation):
     def __init__(self, aruco_corners):
-        CourtLocation.__init__(aruco_corners)
+        CourtLocation.__init__(self, aruco_corners)
 
     def is_inside(self, birdie: BirdieLocation):
         """

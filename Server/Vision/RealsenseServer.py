@@ -32,10 +32,10 @@ class RealsenseServer:
         self.CurrentTime = 0
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
-        self.robot: RobotLocation
+        self.robot: RobotLocation = None
         self.birdies: Dict[Birdie] = {}
         self.next_birdie_id = 0
-        self.court: Court
+        self.court: Court = None
 
         # Config
         self.LIFETIME_THRESHOLD = 3
@@ -115,15 +115,13 @@ class RealsenseServer:
                 self.MarkerAges[id] = self.CurrentTime
             
             if id == self.robotArucoId:
-                print("Robot position: ", centerRS)
                 bottom_left = cornerSet[3]
                 top_left = cornerSet[0]
                 bottom_left = cornerSet[3]
                 theta = self.aruco_angle(top_left, bottom_left)
-                self.robot = RobotLocation.__init__(*centerRS, theta)
+                self.robot = RobotLocation(*centerRS, theta)
             elif id == self.courtArucoId:
-                print("Court position: ", centerRS)
-                self.court = Court.__init__(cornerSet)
+                self.court = Court(cornerSet)
             else:
                 print("Unidentified aruco marker at: ", centerRS)
             
@@ -189,12 +187,12 @@ class RealsenseServer:
                     closest_birdie = self.find_closest_birdie(centerRS)
                     if closest_birdie:
                         # Update existing birdie
-                        closest_birdie.update(*centerRS, centerZ, (x,y,w,h), contour)
+                        closest_birdie.update(*centerRS, (x,y,w,h), contour)
                         new_birdies[closest_birdie.id] = closest_birdie
                     else:
                         # Create new birdie
                         birdie_id = self.next_birdie_id
-                        new_birdie = Birdie(birdie_id, *centerRS, centerZ, 0, False, (x, y, w, h), contour)
+                        new_birdie = Birdie(birdie_id, *centerRS, False, (x, y, w, h), contour)
                         new_birdies[birdie_id] = new_birdie
                         self.next_birdie_id += 1
 
@@ -218,22 +216,6 @@ class RealsenseServer:
 
         # ==== Visualize ==== #
         if visualize:
-
-            # Draw aruco markers for robot and field court
-            color_image = cv2.aruco.drawDetectedMarkers(color_image,aruco_corners,aruco_ids)
-            depth_image = np.asanyarray(depth_frame.get_data())
-            depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
-
-            depth_colormap_dim = depth_colormap.shape
-            color_colormap_dim = color_image.shape
-
-            # If depth and color resolutions are different, resize color image to match depth image for display
-            if depth_colormap_dim != color_colormap_dim:
-                resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
-                images = np.hstack((resized_color_image, depth_colormap))
-            else:
-                images = np.hstack((color_image, depth_colormap))
-
            
             # Drawing params
             fontScale = 2.3
@@ -244,16 +226,17 @@ class RealsenseServer:
 
             for birdie in self.birdies.values():
                 _, _, w, h = birdie.bounding_rect
-                cv2.putText(color_image, f"ID: {birdie.id}", (birdie.x, birdie.y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                x, y = int(birdie.x), int(birdie.y)
+                cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
-                cv2.putText(color_image, str(round(centerZ, 2)), (birdie.x, birdie.y), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-                cv2.rectangle(color_image, (birdie.x, birdie.y), (birdie.x + w, birdie.y + h), (0, 255, 0), 2)
+                cv2.putText(color_image, str(round(centerZ, 2)), (x, y), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
                 # TODO Validate result
                 
-                end_x = int(birdie.x + length * np.cos(np.radians(birdie.orientation)))
-                end_y = int(birdie.y + length * np.sin(np.radians(birdie.orientation)))
-                cv2.line(self.color_image, (birdie.x, birdie.y), (end_x, end_y), (255, 0, 0), 2)
+                end_x = int(x + length * np.cos(np.radians(birdie.angle)))
+                end_y = int(y+ length * np.sin(np.radians(birdie.angle)))
+                cv2.line(color_image, (x, y), (end_x, end_y), (255, 0, 0), 2)
 
             """
             if self.CurrentTime == 200:
@@ -347,6 +330,36 @@ class RealsenseServer:
        
             # Show images
         """
+
+        ### BADMINTON COURT VISUALIZATION
+        if self.court:
+            court_corners = [self.court.A, self.court.B, self.court.C, self.court.D]
+            labels = ['A', 'B', 'C', 'D']
+            for i, corner in enumerate(court_corners):
+                cv2.circle(color_image, center=(int(corner.x), int(corner.y)), radius=5, color=(0, 0, 255), thickness=-1)
+                cv2.putText(color_image, labels[i], (int(corner.x) + 10, int(corner.y) + 10), fontFace, fontScale, (0, 0, 255), fontThickness, cv2.LINE_AA)
+                next_corner = court_corners[(i + 1) % 4]  # Connect to the next corner, wrapping around to the first corner
+                cv2.line(color_image, (int(corner.x), int(corner.y)), (int(next_corner.x), int(next_corner.y)), (0, 0, 255), 2)
+
+
+
+        ### ARUCO MARKER VISUALIZATION ###
+        # Draw aruco markers for robot and field court
+        color_image = cv2.aruco.drawDetectedMarkers(color_image,aruco_corners,aruco_ids)
+        depth_image = np.asanyarray(depth_frame.get_data())
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+
+        depth_colormap_dim = depth_colormap.shape
+        color_colormap_dim = color_image.shape
+
+        # If depth and color resolutions are different, resize color image to match depth image for display
+        if depth_colormap_dim != color_colormap_dim:
+            resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
+            images = np.hstack((resized_color_image, depth_colormap))
+        else:
+            images = np.hstack((color_image, depth_colormap))
+
+
         
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', images)

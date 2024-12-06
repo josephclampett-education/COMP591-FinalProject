@@ -2,12 +2,11 @@ import cv2
 from Server.Location import BirdieLocation
 
 class Birdie(BirdieLocation):
-    def __init__(self, id, x, y, z, angle, hit_ground, bounding_rect, contour):
-        super().__init__(x, y, z, angle, hit_ground)
+    def __init__(self, id, x, y, z, hit_ground, bounding_rect, contour):
         self.id = id
         self.bounding_rect = bounding_rect  # (x, y, w, h)
         self.contour = contour
-        self.orientation = self.calculate_orientation()
+        super().__init__(x, y, z, self.calculate_orientation(), hit_ground)
         self.history = [(x, y, z)]  # Initialize with the current position
 
     def update(self, x, y, z, bounding_rect, contour):
@@ -16,11 +15,11 @@ class Birdie(BirdieLocation):
         self.z = z
         self.bounding_rect = bounding_rect
         self.contour = contour
-        self.orientation = self.calculate_orientation()
+        self.angle = self.calculate_orientation()
         self.history.append((x, y, z))  # Append the new position to history
 
         # TODO implement check that sets hit_ground to true if z = floor
-        if self.z == 0:
+        if self.z == 0: # Take the z value from aruco marker court
             self.hit_ground = True
 
     def calculate_orientation(self):
