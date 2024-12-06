@@ -350,14 +350,41 @@ class RealsenseServer:
 
         ### BADMINTON COURT VISUALIZATION
         if self.court:
-            court_corners = [self.court.A, self.court.B, self.court.C, self.court.D]
-            labels = ['A', 'B', 'C', 'D']
-            for i, corner in enumerate(court_corners):
-                cv2.circle(color_image, center=(int(corner.x), int(corner.y)), radius=5, color=(0, 0, 255), thickness=-1)
-                cv2.putText(color_image, labels[i], (int(corner.x) + 10, int(corner.y) + 10), fontFace, fontScale, (0, 0, 255), fontThickness, cv2.LINE_AA)
-                next_corner = court_corners[(i + 1) % 4]  # Connect to the next corner, wrapping around to the first corner
-                cv2.line(color_image, (int(corner.x), int(corner.y)), (int(next_corner.x), int(next_corner.y)), (0, 0, 255), 2)
+            #court_corners = [self.court.CL, self.court.CR, self.court.STL, self.court.STM, self.court.STR, self.court.SBR, self.court.SBM, self.court.SBL]
+            #labels = ['CL', 'CR', 'STL', 'STM', 'STR', 'SBR', 'SBM', 'SBL']
+           
+            # Define connections for the court and serving box
+            court_connections = [(self.court.CL, self.court.CR)]  # Only one line for court boundary
+            serve_box_connections = [
+                (self.court.STL, self.court.STM),  # Top of the serving box
+                (self.court.STM, self.court.STR),
+                (self.court.STR, self.court.SBR),  # Right side
+                (self.court.SBR, self.court.SBM),  # Bottom of the serving box
+                (self.court.SBM, self.court.SBL),
+                (self.court.SBL, self.court.STL),  # Left side
+                (self.court.SBM, self.court.STM)
+            ]
 
+            # Draw court boundary lines
+            for corner1, corner2 in court_connections:
+                cv2.line(color_image, 
+                        (int(corner1.x), int(corner1.y)), 
+                        (int(corner2.x), int(corner2.y)), 
+                        (255, 0, 0), 2)  # Blue for court boundary
+
+            # Draw serving box lines
+            for corner1, corner2 in serve_box_connections:
+                cv2.line(color_image, 
+                        (int(corner1.x), int(corner1.y)), 
+                        (int(corner2.x), int(corner2.y)), 
+                        (0, 0, 255), 2)  # Red for serving box
+
+            # Annotate the corners
+            labels = ['CL', 'CR', 'STL', 'STM', 'STR', 'SBR', 'SBM', 'SBL']
+            court_corners = [self.court.CL, self.court.CR, self.court.STL, self.court.STM, self.court.STR, self.court.SBR, self.court.SBM, self.court.SBL]
+            for i, corner in enumerate(court_corners):
+                cv2.circle(color_image, center=(int(corner.x), int(corner.y)), radius=5, color=(0, 255, 0), thickness=-1)
+                cv2.putText(color_image, labels[i], (int(corner.x) + 10, int(corner.y) + 10), fontFace, (fontScale * 0.4), (0, 255, 0), fontThickness, cv2.LINE_AA)
 
 
         ### ARUCO MARKER VISUALIZATION ###

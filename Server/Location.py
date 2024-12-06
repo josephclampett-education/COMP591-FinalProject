@@ -73,8 +73,8 @@ class CourtLocation():
     SCALE = 40
 
     def __init__(self, aruco_corners):
-        self.A, self.B, self.C, self.D = self.calculate_court_corners(aruco_corners)
-
+        self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)    
+    
     
     def calculate_court_corners(self, aruco_corners):
         """
@@ -99,14 +99,44 @@ class CourtLocation():
         vDC = np.array([dDC_x, dDC_y]) / vDC_norm
 
         # Calculate the court corners
-        court_cornerD = cornerD
-        court_cornerA = (self.SCALE * self.WIDTH * vDA) + court_cornerD
-        court_cornerC = (self.SCALE * self.LENGTH * vDC) + court_cornerD
-        court_cornerB = court_cornerA + court_cornerC - court_cornerD
+        
+        # bottom right net
+        court_cornerR = cornerD
 
-        court_cornerA = Position(*court_cornerA, 0)
-        court_cornerB = Position(*court_cornerB, 0)
-        court_cornerC = Position(*court_cornerC, 0)
-        court_cornerD = Position(*court_cornerD, 0)
+        # bottom left net
+        court_cornerL = (self.SCALE * self.WIDTH * vDA) + court_cornerR
+        
+        # top right serve zone
+        serve_cornerTR = (self.SCALE * self.LENGTH * vDC) + court_cornerR
+        
+        # top left serve zone
+        serve_cornerTL = court_cornerL + serve_cornerTR - court_cornerR
+        
+        # top middle serve zone
+        serve_cornerTM = self.calculate_midpoint2d(serve_cornerTR, serve_cornerTL)
+        
+        # right bottom serve zone
+        serve_cornerBR = (self.SCALE * self.MIDDLE_TO_SERVEZONE * vDC) + court_cornerR
 
-        return court_cornerA, court_cornerB, court_cornerC, court_cornerD
+        # left bottom serve zone
+        serve_cornerBL = (self.SCALE * self.MIDDLE_TO_SERVEZONE * vDC) + court_cornerL
+
+        # middle bottom serve zone
+        serve_cornerBM = self.calculate_midpoint2d(serve_cornerBL, serve_cornerBR)
+
+        court_cornerL = Position(*court_cornerL, 0)
+        court_cornerR = Position(*court_cornerR, 0)
+        serve_cornerTL = Position(*serve_cornerTL, 0)
+        serve_cornerTM = Position(*serve_cornerTM, 0)
+        serve_cornerTR = Position(*serve_cornerTR, 0)
+        serve_cornerBR = Position(*serve_cornerBR, 0)
+        serve_cornerBM = Position(*serve_cornerBM, 0)
+        serve_cornerBL = Position(*serve_cornerBL, 0)
+
+        return court_cornerL, court_cornerR, serve_cornerTL, serve_cornerTM, serve_cornerTR, serve_cornerBR, serve_cornerBM, serve_cornerBL
+
+    def calculate_midpoint2d(self, point1, point2):
+        x1, y1, = point1
+        x2, y2 = point2
+        midpoint = ((x1 + x2) / 2, (y1 + y2) / 2)
+        return midpoint

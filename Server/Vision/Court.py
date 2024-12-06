@@ -15,7 +15,7 @@ class Court(CourtLocation):
         Returns:
         bool: True if the birdie is inside the court, False otherwise.
         """
-        court_2d = [(x, y) for x, y, _ in zip(self.A, self.B, self.C, self.D)]
+        court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STR, self.CR, self.CL)]
         birdie_2d = [birdie.x, birdie.y]
 
         inside = True
@@ -29,11 +29,11 @@ class Court(CourtLocation):
         return inside
 
 
-    def which_side(self, birdie: BirdieLocation):
+    def which_serve_side(self, birdie: BirdieLocation):
         """
         Check if the birdie is on the left or right side of the court.
         """
-        # TODO 
+        
 
 
     def display_court(self):
