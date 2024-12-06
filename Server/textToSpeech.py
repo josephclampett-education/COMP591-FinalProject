@@ -154,8 +154,16 @@ def listen_and_respond(point_queue, event_queue, robot_commander):
     generate_tts("""Hello, I am your badminton practice partner, and you can call me PiPi.
                  We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton,
                  and the second round is to practice badminton hitting techniques.
-                 Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.
+                 First thing first, let me introduce you the basic rules in singles badminton.
                   """)
+    time.sleep(2)
+    generate_tts("""1. Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court
+                 when your score is even; If your score is odd, you start from the left service court.
+                 2. Hitting rules: For singles, the boundaires are narrower than doubles: the inner side lines and the back boundary
+                 line are used.
+                  """)
+    time.sleep(2)
+    generate_tts("Now, please stand in the position opposite me, let me show you the badminton court")
 
     while True:
         client_input = listen()
