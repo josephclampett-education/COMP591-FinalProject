@@ -26,7 +26,8 @@ grab_motor = Motor(Port.C)
 robot = DriveBase(left_motor, right_motor, wheel_diameter=55.5, axle_track=104)
 
 server = BluetoothMailboxServer()
-mbox = TextMailbox('talk', server)
+commandBox = TextMailbox('command', server)
+hitBox = TextMailbox('hit', server)
 
 # The server must be started before the client!
 print('waiting for connection...')
@@ -36,8 +37,8 @@ print('connected!')
 # In this program, the server waits for the client to send the first message
 # and then sends a reply.
 while True:
-    mbox.wait()
-    command = mbox.read()
+    commandBox.wait()
+    command = commandBox.read()
 
     print('Read')
 
@@ -65,4 +66,6 @@ while True:
         robot.stop()
 
     print('PreSend')
-    mbox.send('received' + command)
+    commandBox.send('received' + command)
+    
+    hitBox.send('hit')

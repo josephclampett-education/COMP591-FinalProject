@@ -36,8 +36,8 @@ class Move:
 class RobotCommander:
     def __init__(self):
         self.client = BluetoothMailboxClient()
-        self.mbox = TextMailbox('talk', self.client)
-        self.hitbox = TextMailbox('hit', self.client)
+        self.commandBox = TextMailbox('command', self.client)
+        self.hitBox = TextMailbox('hit', self.client)
 
         print("Connecting to EV3...")
         try:
@@ -45,13 +45,13 @@ class RobotCommander:
             print("Connected successfully!")
         except OSError as e:
             print(f"Connection failed: {e}")
-        print("Connected!")
 
     def send_command(self, cmd):
         # commands = ["FORWARD", "LEFT", "MOVE 100 100", "STOP"]
         # for cmd in commands:
-        self.mbox.send(cmd.__str__())
+        self.commandBox.send(cmd.__str__())
         print(f"Sending: {cmd}")
-        self.mbox.wait()  # Wait for EV3's confirmation
-        print("Response:", self.mbox.read())
-
+        self.commandBox.wait()  # Wait for EV3's confirmation
+        self.hitBox.wait()
+        print("CResponse:", self.commandBox.read())
+        print("HResponse:", self.hitBox.read())
