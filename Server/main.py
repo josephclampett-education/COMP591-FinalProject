@@ -15,9 +15,29 @@ import math
 import asyncio
 from queue import Queue
 from threading import Event, Thread
+from enum import Enum, auto
 import Server.RobotCommander as RobotCommander
 from Server.Path import next_collection_taget
 from Server.Lesson import make_lesson
+
+
+class Stage(Enum): 
+    STARTUP = auto() #1
+    STARTGAME = auto() #2
+    HIT_INSTRUCT = auto() #3
+    HIT_PLAYER = auto() #4
+    HIT_REACT = auto() #5
+    ROUND_END = auto() #6
+    COLLECT_EVACUATE = auto() #7
+    COLLECT_PLAN = auto() #8
+    COLLECT_ACT = auto() #9
+
+
+    def next_stage(self):
+        stage = list(self.__class__)
+        return stage[(self.value - 1 + 1) % len(stage)]
+
+
 
 def has_collected(robot_location, birdie_position):
     return robot_location.flat_distance(birdie_position) < robot_location.flat_distance(robot_location.get_gripper_position)
@@ -39,7 +59,52 @@ def main():
 
     points = 0
 
+
+
+    # initialize Stage controll enum
+    stage = Stage.STARTUP
+
     while True:
+
+        match stage:
+            case Stage.STARTUP:
+                # Initialize all components
+                pass
+            case Stage.STARTGAME:
+                # TODO Do we need this stage?
+                pass
+            case Stage.HIT_INSTRUCT:
+                # a. Robot tells player to hit birdie   
+                # b. Capture background frame of court (includes robot, other birdies, etc.)
+                pass
+            case Stage.HIT_PLAYER:
+                # a. Player hits a birdie as instructed
+                # b. Camera is live, tracking position of court
+                # c. Look for impact
+                # d. Robot reacts to hit
+                pass
+            case Stage.HIT_REACT:
+                # a. Give details on the specific hit
+                # b. Return to HIT_INSTRUCT
+                pass
+            case Stage.ROUND_END:
+                # Robot tells the player to stop, gives stats, etc.
+                # Answers questions
+                pass
+            case Stage.COLLECT_EVACUATE:
+                # Robot drives off court in a controlled way (we need to get it back on the court again)
+                pass
+            case Stage.COLLECT_PLAN:
+                # a. Take image
+                # b. Make fixed path all the way from first to last one detected
+                pass
+            case Stage.COLLECT_ACT:
+                # a. Drive from point to point, grabbing at each stop
+                # b. Don’t worry about if some weren’t collected
+                # c. Return to COLLECT_EVACUATE
+                pass
+            
+
         if not textToSpeechThread.is_alive():
             break
 
