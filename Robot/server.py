@@ -45,11 +45,11 @@ while True:
     if command.startswith("LEFT"):
         print('LEFT')
         angle = command.split()[1]
-        robot.turn(-int(angle))
+        robot.turn(-float(angle))
     elif command.startswith("RIGHT"):
         print('RIGHT')
         angle = command.split()[1]
-        robot.turn(int(angle))
+        robot.turn(float(angle))
     elif command == "END":
         print('END')
         ev3.speaker.beep()
@@ -61,7 +61,7 @@ while True:
     elif command.startswith("FORWARD"):
         print('FORWARD')
         distance = command.split()[1]
-        robot.straight(int(distance))
+        robot.straight(float(distance))
     elif command == "STOP":
         robot.stop()
 
