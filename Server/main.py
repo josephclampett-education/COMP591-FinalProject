@@ -63,32 +63,55 @@ def main():
 
     # initialize Stage controll enum
     stage = Stage.STARTUP
-
+    BIRDIES_PER_ROUND = 5
+    num_birdies_landed = 0
     while True:
 
+        # Here perform actions that should be executed all the time
+        realsense.detect_arucos()
+
+
+
+        # Here perform actions that should be executed depending on the stage
         match stage:
             case Stage.STARTUP:
                 # Initialize all components
+                # a. Realsense camera should detect court and robot
+                if realsense.found_arucos(): # TODO add other conditions here that are needed to process to next stage
+                    stage = stage.next_stage()
                 pass
             case Stage.STARTGAME:
                 # TODO Do we need this stage?
                 pass
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie   
+                # TODO
                 # b. Capture background frame of court (includes robot, other birdies, etc.)
+                realsense.capture_background() # This is the background with the static robot inside of it
+                stage = stage.next_stage()
                 pass
             case Stage.HIT_PLAYER:
                 # a. Player hits a birdie as instructed
                 # b. Camera is live, tracking position of court
+                realsense.detect_birdies(visualize=True)
                 # c. Look for impact
-                # d. Robot reacts to hit
-                pass
+                if realsense.get_num_birdies_landed() == num_birdies_landed + 1:
+                    # go to next stage after a birdie has been detected as landed
+                    num_birdies_landed += 1
+                    # d. Robot reacts to hit
+                    # TODO Robot reacts to  a hit
+                    stage = stage.next_stage()
+
             case Stage.HIT_REACT:
                 # a. Give details on the specific hit
+                # TODO
+                
                 # b. Return to HIT_INSTRUCT
-                pass
+                stage = Stage.HIT_INSTRUCT
+            
             case Stage.ROUND_END:
                 # Robot tells the player to stop, gives stats, etc.
+                # TODO 
                 # Answers questions
                 pass
             case Stage.COLLECT_EVACUATE:
@@ -96,6 +119,7 @@ def main():
                 pass
             case Stage.COLLECT_PLAN:
                 # a. Take image
+                realsense.capture_background()
                 # b. Make fixed path all the way from first to last one detected
                 pass
             case Stage.COLLECT_ACT:

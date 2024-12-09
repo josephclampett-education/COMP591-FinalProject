@@ -8,8 +8,13 @@ class Birdie(BirdieLocation):
         self.contour = contour
         super().__init__(x, y, z, self.calculate_orientation(), hit_ground)
         self.history = [(x, y, z)]  # Initialize with the current position
+        self.trajectory = None # Can be 'left2left', 'left2right', 'right2right', 'right2left'
 
     def update(self, x, y, z, bounding_rect, contour):
+        if self.hit_ground:
+            # Do not update the position if the birdie has hit the ground
+            return
+        
         self.x = x
         self.y = y
         self.z = z
@@ -27,3 +32,10 @@ class Birdie(BirdieLocation):
         rect = cv2.minAreaRect(self.contour)
         angle = rect[2]
         return angle
+    
+    def calculate_trajectory(self):
+        # Calculate the trajectory based on the history
+        if len(self.history) < 2:
+            print("ERROR: Not enough history points to calculate trajectory")
+            return None
+        
