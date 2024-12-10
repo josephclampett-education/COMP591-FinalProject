@@ -5,7 +5,7 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
-
+import time
 from collections import deque
 import Server.Vision.RealsenseServer as RealsenseServer
 import Server.textToSpeech as textToSpeech
@@ -87,6 +87,8 @@ def main():
                 # a. Robot tells player to hit birdie   
                 # TODO
                 # b. Capture background frame of court (includes robot, other birdies, etc.)
+                time.sleep(1)
+                realsense.reset_birdies()
                 realsense.capture_background() # This is the background with the static robot inside of it
                 stage = stage.next_stage()
                 pass
@@ -95,7 +97,7 @@ def main():
                 # b. Camera is live, tracking position of court
                 realsense.detect_birdies(visualize=True)
                 # c. Look for impact
-                if realsense.get_num_birdies_landed() == num_birdies_landed + 1:
+                if realsense.get_num_birdies_landed() == 1: # We delete birdies after detection, so 1 equals new birdie landed
                     print("Birdie Detected: Proceed to Stage HIT_REACT")
                     # go to next stage after a birdie has been detected as landed
                     num_birdies_landed += 1
@@ -108,11 +110,16 @@ def main():
                 # TODO
                 
                 # b. Return to HIT_INSTRUCT
-                stage = Stage.HIT_INSTRUCT
+                if num_birdies_landed == BIRDIES_PER_ROUND:
+                    stage = stage.next_stage()
+                else:
+                    stage = Stage.HIT_INSTRUCT
             
             case Stage.ROUND_END:
                 # Robot tells the player to stop, gives stats, etc.
                 # TODO 
+                print("Game over")
+                raise Exception("Game Over") # TODO remove
                 # Answers questions
                 pass
             case Stage.COLLECT_EVACUATE:

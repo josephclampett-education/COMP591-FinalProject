@@ -163,36 +163,7 @@ class RealsenseServer:
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
         depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
 
-        for i, cornerSet in enumerate(aruco_corners):
-            assert(cornerSet.shape[0] == 1)
-            cornerSet = cornerSet[0, ...]
-
-            (cornerA_x, cornerA_y) = cornerSet[0]
-            (cornerB_x, cornerB_y) = cornerSet[2]
-
-            centerSS = [(cornerA_x + cornerB_x) / 2.0, (cornerA_y + cornerB_y) / 2]
-            centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
-
-            centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
-
-            id = aruco_ids[i][0]
-            self.MarkerCentroids[id] = centerRS
-            if self.MarkerAges[id] != -2:
-                self.MarkerAges[id] = self.CurrentTime
-            
-            if id == self.robotArucoId:
-                bottom_left = cornerSet[3]
-                top_left = cornerSet[0]
-                bottom_left = cornerSet[3]
-                theta = self.aruco_angle(top_left, bottom_left)
-                self.robot = RobotLocation(*centerRS, theta)
-            elif id == self.courtArucoId:
-                self.court = Court(cornerSet)
-                self.court_z = centerZ
-            else:
-                print("Unidentified aruco marker at: ", centerRS)
-            
-        
+       
         ### --- Birdie Tracking Code --- ###
         ### information ###
         # x is the width value. Center of camera is 0 width right going positiv
