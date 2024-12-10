@@ -51,6 +51,12 @@ class RobotLocation(Position, Orientation):
     def __init__(self, x, y, z, angle):
         Position.__init__(self, x, y, z)
         Orientation.__init__(self, angle)
+    
+    def update(self, x, y, z, angle):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.angle = angle
 
     def get_grabber_position(self):
         return Position(

@@ -15,7 +15,7 @@ class Court(CourtLocation):
         Returns:
         bool: True if the birdie is inside the court, False otherwise.
         """
-        court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STR, self.CR, self.CL)]
+        court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STR, self.SBR, self.SBL)]
         birdie_2d = [birdie.x, birdie.y]
 
         inside = True

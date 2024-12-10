@@ -82,32 +82,83 @@ class RealsenseServer:
         ### Store the birdie positions # TODO Review if still need
         #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
 
-
-    # This function detects aruco markers and birdies and stores their positions
-    def detect(self, visualize=True):
-        # Initialize the backround after a short delay
-        if self.CurrentTime == 50:
-            frames = self.pipeline.wait_for_frames()
-            color_frame = frames.get_color_frame()
-            background = np.asanyarray(color_frame.get_data())
-            self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-        if cv2.waitKey(1) & 0xFF == ord('r'):
-            print("reset at frame", self.CurrentTime)
-            # Reset background
-            frames = self.pipeline.wait_for_frames()
-            color_frame = frames.get_color_frame()
-            background = np.asanyarray(color_frame.get_data())
-            self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-
-        # ==== FRAME QUERYING ====
+    # This function captures a frame
+    def capture_frame(self):
         frames = self.pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
         if not depth_frame or not color_frame:
             return
         color_image = np.asanyarray(color_frame.get_data())
+        return depth_frame, color_image
+
+    # This function captures the background frame
+    def capture_background(self):
+        _, background = self.capture_frame()
+        self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+
+    # This function detects aruco markers (court and robot)
+    def detect_arucos(self):
+        depth_frame, color_image = self.capture_frame()
+        # Detect aruco markers
+        aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
+        depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
+
+        for i, cornerSet in enumerate(aruco_corners):
+            assert(cornerSet.shape[0] == 1)
+            cornerSet = cornerSet[0, ...]
+
+            (cornerA_x, cornerA_y) = cornerSet[0]
+            (cornerB_x, cornerB_y) = cornerSet[2]
+
+            centerSS = [(cornerA_x + cornerB_x) / 2.0, (cornerA_y + cornerB_y) / 2]
+            centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
+
+            centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
+
+            id = aruco_ids[i][0]
+            self.MarkerCentroids[id] = centerRS
+            if self.MarkerAges[id] != -2:
+                self.MarkerAges[id] = self.CurrentTime
+            
+            # Match the aruco marker to the robot or the court
+            if id == self.robotArucoId:
+                bottom_left = cornerSet[3]
+                top_left = cornerSet[0]
+                bottom_left = cornerSet[3]
+                theta = self.aruco_angle(top_left, bottom_left) # TODO Validate if this is the correct angle
+                if self.robot is None:
+                    self.robot = RobotLocation(*centerRS, theta)
+                else:
+                    self.robot.update(*centerRS, theta)
+            elif id == self.courtArucoId:
+                if self.court is None:
+                    self.court = Court(cornerSet)
+                else:
+                    # We assume, that the court does not move
+                    pass
+            else:
+                print("Unidentified aruco marker at: ", centerRS)
+
+    # This function checks, if both aruco markers (robot, court) are detected
+    def found_arucos(self):
+        return self.robot is not None and self.court is not None
+
+    # This function detects aruco markers and birdies and store stheir positions
+    def detect_birdies(self, visualize=True):
+        # Initialize the backround after a short delay
+        if self.CurrentTime == 50:
+            self.capture_background()
+        if cv2.waitKey(1) & 0xFF == ord('r'):
+            print("reset at frame", self.CurrentTime)
+            # Reset background
+            self.capture_background()
+
+        # ==== FRAME QUERYING ====
+        depth_frame, color_image = self.capture_frame()
 
         # ==== MARKER TRACKING ====
+        # TODO Do I still need this part here
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
         depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
 
@@ -433,3 +484,9 @@ class RealsenseServer:
         delta_y = (corner_bottom_left[1] - corner_top_left[1])
         theta = np.arctan2(delta_y, delta_x)
         return theta
+
+    def get_num_birdies_landed(self):
+        return len([birdie for birdie in self.birdies.values() if birdie.landed])
+    
+    def is_last_birdie_inside_court(self):
+        return self.court.is_inside(list(self.birdies.values())[-1])

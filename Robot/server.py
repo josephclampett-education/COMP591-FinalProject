@@ -44,12 +44,10 @@ while True:
 
     if command.startswith("LEFT"):
         print('LEFT')
-        angle = command.split()[1]
-        robot.turn(-float(angle))
+        robot.drive(0, -1)
     elif command.startswith("RIGHT"):
         print('RIGHT')
-        angle = command.split()[1]
-        robot.turn(float(angle))
+        robot.drive(0, 1)
     elif command == "END":
         print('END')
         ev3.speaker.beep()
@@ -60,12 +58,17 @@ while True:
         wait(100)
     elif command.startswith("FORWARD"):
         print('FORWARD')
-        distance = command.split()[1]
-        robot.straight(float(distance))
+        robot.drive(5, 0)
     elif command == "STOP":
         robot.stop()
+    elif command.startswith("WHEEL"):
+        turns = command.split[1]
+        speed = 360 * turns / abs(turns)
+        robot.left_motor.run(speed)
+        robot.right_motor.run(speed)
+        wait(abs(turns) * 1000)
 
     print('PreSend')
-    commandBox.send('received' + command)
-    
-    hitBox.send('hit')
+    # commandBox.send('received' + command)
+
+    # hitBox.send('hit')
