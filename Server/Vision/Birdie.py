@@ -10,7 +10,7 @@ class Birdie(BirdieLocation):
         self.history = [(x, y, z)]  # Initialize with the current position
         self.trajectory = None # Can be 'left2left', 'left2right', 'right2right', 'right2left'
 
-    def update(self, x, y, z, bounding_rect, contour):
+    def update(self, x, y, z, bounding_rect, contour, court_z, num_birdies):
         if self.hit_ground:
             # Do not update the position if the birdie has hit the ground
             return
@@ -24,7 +24,9 @@ class Birdie(BirdieLocation):
         self.history.append((x, y, z))  # Append the new position to history
 
         # TODO implement check that sets hit_ground to true if z = floor
-        if self.z == 0: # Take the z value from aruco marker court
+        if self.z >= court_z*0.9 : # Take the z value from aruco marker court
+            print("Birdie hit groud")
+            print("current birdie tracked:", num_birdies)
             self.hit_ground = True
 
     def calculate_orientation(self):
@@ -33,9 +35,17 @@ class Birdie(BirdieLocation):
         angle = rect[2]
         return angle
     
-    def calculate_trajectory(self):
+    def calculate_x_trajectory(self):
         # Calculate the trajectory based on the history
         if len(self.history) < 2:
             print("ERROR: Not enough history points to calculate trajectory")
             return None
-        
+
+        # Calculate the average moving x direction        
+        delta_x = 0
+        for i in range(len(self.history)-1):
+            x1 = self.history[i][1] # older datapoint
+            x2 = self.history[i+1][1] # newer datapoint
+            delta_x += x2 - x1
+
+        return delta_x

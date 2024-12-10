@@ -5,23 +5,34 @@ class Court(CourtLocation):
     def __init__(self, aruco_corners):
         CourtLocation.__init__(self, aruco_corners)
 
-    def is_inside(self, birdie: BirdieLocation):
+    def is_inside(self, birdie: BirdieLocation, side='all'):
         """
         Check if a birdie is inside the court.
 
         Parameters:
         birdie_pos (tuple): A tuple with the (x, y, z) coordinates of the birdie.
+        side (string): Value, that determines which are is getting checked. Values: 'all', 'left_serve', 'right_serve'
 
         Returns:
         bool: True if the birdie is inside the court, False otherwise.
         """
-        court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STR, self.SBR, self.SBL)]
+        match side:
+            case 'all':
+                court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STR, self.CR, self.CL)]
+            case 'left_serve':
+                court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STM, self.SBM, self.SBL)]
+            case 'right_serve':
+                court_2d = [(x, y) for x, y, _ in zip(self.SBM, self.STR, self.SBR, self.SBM)]
+            case _:
+                print("ERROR: Invalid parameter for <side> in function <is_inside>")
+                raise Exception(ValueError)
+        
         birdie_2d = [birdie.x, birdie.y]
 
         inside = True
-        for i in range(4):
+        for i in range(len(court_2d)):
             o = court_2d[i]
-            a = court_2d[(i + 1) % 4]
+            a = court_2d[(i + 1) % len(court_2d)]
             if self.cross(o, a, birdie_2d) < 0:
                 inside = False
                 break

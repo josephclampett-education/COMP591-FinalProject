@@ -94,7 +94,7 @@ class RealsenseServer:
 
     # This function captures the background frame
     def capture_background(self):
-        _, background = self.capture_frame()
+        depth_frame, background = self.capture_frame()
         self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
     # This function detects aruco markers (court and robot)
@@ -103,7 +103,6 @@ class RealsenseServer:
         # Detect aruco markers
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
         depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
-
         for i, cornerSet in enumerate(aruco_corners):
             assert(cornerSet.shape[0] == 1)
             cornerSet = cornerSet[0, ...]
@@ -120,25 +119,28 @@ class RealsenseServer:
             self.MarkerCentroids[id] = centerRS
             if self.MarkerAges[id] != -2:
                 self.MarkerAges[id] = self.CurrentTime
-            
-            # Match the aruco marker to the robot or the court
-            if id == self.robotArucoId:
-                bottom_left = cornerSet[3]
-                top_left = cornerSet[0]
-                bottom_left = cornerSet[3]
-                theta = self.aruco_angle(top_left, bottom_left) # TODO Validate if this is the correct angle
-                if self.robot is None:
-                    self.robot = RobotLocation(*centerRS, theta)
+            if centerZ is not 0:
+                # Match the aruco marker to the robot or the court
+                if id == self.robotArucoId:
+                    bottom_left = cornerSet[3]
+                    top_left = cornerSet[0]
+                    bottom_left = cornerSet[3]
+                    theta = self.aruco_angle(top_left, bottom_left) # TODO Validate if this is the correct angle
+                    if self.robot is None:
+                        self.robot = RobotLocation(*centerRS, theta)
+                    else:
+                        self.robot.update(*centerRS, theta)
+                elif id == self.courtArucoId:
+                    if self.court is None:
+                        if centerZ == 0:
+                            raise Exception("Depth value for Court Aruco == 0 => Place court more into the inside of the court")
+                        self.court_z = centerZ
+                        self.court = Court(cornerSet)
+                    else:
+                        # We assume, that the court does not move
+                        pass
                 else:
-                    self.robot.update(*centerRS, theta)
-            elif id == self.courtArucoId:
-                if self.court is None:
-                    self.court = Court(cornerSet)
-                else:
-                    # We assume, that the court does not move
-                    pass
-            else:
-                print("Unidentified aruco marker at: ", centerRS)
+                    print("Unidentified aruco marker at: ", centerRS)
 
     # This function checks, if both aruco markers (robot, court) are detected
     def found_arucos(self):
@@ -147,8 +149,6 @@ class RealsenseServer:
     # This function detects aruco markers and birdies and store stheir positions
     def detect_birdies(self, visualize=True):
         # Initialize the backround after a short delay
-        if self.CurrentTime == 50:
-            self.capture_background()
         if cv2.waitKey(1) & 0xFF == ord('r'):
             print("reset at frame", self.CurrentTime)
             # Reset background
@@ -157,6 +157,7 @@ class RealsenseServer:
         # ==== FRAME QUERYING ====
         depth_frame, color_image = self.capture_frame()
 
+        
         # ==== MARKER TRACKING ====
         # TODO Do I still need this part here
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
@@ -187,31 +188,11 @@ class RealsenseServer:
                 self.robot = RobotLocation(*centerRS, theta)
             elif id == self.courtArucoId:
                 self.court = Court(cornerSet)
+                self.court_z = centerZ
             else:
                 print("Unidentified aruco marker at: ", centerRS)
             
         
-        # ==== Process all incoming markers ====
-        outLiveMarkerIds = []
-        outLiveMarkerPositionsRS = []
-        for i, markerAge in enumerate(self.MarkerAges):
-            # Ignore calibrants and unencountereds
-            if markerAge < 0:
-                continue
-
-            outId = i
-            outCentroidRS = [-999.0, -999.0, -999.0]
-            if (self.CurrentTime - markerAge) > self.LIFETIME_THRESHOLD:
-                outCentroidRS = [-999.0, -999.0, -999.0 ]
-            else:
-                centroid = self.MarkerCentroids[i]
-                centroid = np.append(centroid, 1.0)
-                outCentroidRS = [centroid[0].item(), centroid[1].item(), centroid[2].item()]
-
-            outLiveMarkerIds.append(outId)
-            outLiveMarkerPositionsRS.append(outCentroidRS)
-
-
         ### --- Birdie Tracking Code --- ###
         ### information ###
         # x is the width value. Center of camera is 0 width right going positiv
@@ -247,14 +228,15 @@ class RealsenseServer:
                 centerSS = (int(x + w/2), int(y + h/2))
                 centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
                 centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
-
+                #print(centerZ)
                 # Finded the closest existing Birdie to the current birdie position
                 closest_birdie = self.find_closest_birdie(centerRS)
                 if closest_birdie:
                     # Update existing birdie
-                    closest_birdie.update(*centerRS, (x,y,w,h), contour)
+                    closest_birdie.update(*centerRS, (x,y,w,h), contour, self.court_z, len(self.birdies))
                     new_birdies[closest_birdie.id] = closest_birdie
                 else:
+                    print("Create a new Birdie")
                     # Create new birdie
                     birdie_id = self.next_birdie_id
                     new_birdie = Birdie(birdie_id, *centerRS, False, (x, y, w, h), contour)
@@ -264,19 +246,6 @@ class RealsenseServer:
 
                 # Save birdie information in data struct
                 self.birdies = new_birdies
-
-                    # Append to DataFrame
-                    #new_row = pd.DataFrame([{
-                    #    'frame': self.CurrentTime,
-                    #    'id': birdie_id,
-                    #    'x': centerRS[0],
-                    #    'y': centerRS[1],
-                    #    'z': centerZ
-                    #}])
-
-                    # Use pd.concat() to add the new row to the DataFrame
-                    #self.birdie_positions = pd.concat([self.birdie_positions, new_row], ignore_index=True)
-
 
 
         # ==== Visualize ==== #
@@ -306,98 +275,6 @@ class RealsenseServer:
                     #print("Birdie", birdie.id, bx, birdie.x, by, birdie.y)
                     #print(x,y)
 
-            """
-            if self.CurrentTime == 200:
-                print("200 timestep")
-                # Filter for unique birdie IDs
-
-            # Create a 3D plot
-
-                # Filter the DataFrame for a specific birdie ID if desired (optional)
-                birdie_id_to_plot = 0  # Change this to the birdie ID you want to plot
-                birdie_data = self.birdie_positions[self.birdie_positions['id'] == birdie_id_to_plot]
-                #print(birdie_data)
-                # Extract the coordinates
-                x = birdie_data['x']
-                y = birdie_data['y']
-                z = birdie_data['z']
-                frame = birdie_data['frame']  # Optional for color
-
-                # Create the 3D plot
-                fig = plt.figure(figsize=(10, 7))
-                ax = fig.add_subplot(111, projection='3d')
-
-                # Scatter plot (3D)
-                sc = ax.scatter(x, z, -y, c=frame, cmap='viridis', label=f'Birdie {birdie_id_to_plot}')
-                plt.colorbar(sc, label='Frame')
-
-                # Optional: Connect points with a line
-                ax.plot(x, z, -y, color='gray', alpha=0.5)
-
-                # Labels and title
-                ax.set_title(f"3D Trajectory of Birdie {birdie_id_to_plot}")
-                ax.set_xlabel('X Position')
-                ax.set_ylabel('Y Position(RS: Z)')
-                ax.set_zlabel('Z Position(RS: -y)')
-                ax.legend()
-
-                ax.set_xlim(-2, 2)  # Replace with your desired range for x-axis
-                ax.set_ylim(0, 5)  # Replace with your desired range for y-axis
-                ax.set_zlim(-2, 2)  # Replace with your desired range for z-axis
-
-                # Show plot
-                plt.show()
-
-                # Add labels, legend, and title
-                ax.set_title("3D Trajectories of All Birdies")
-                ax.set_xlabel('X Position')
-                ax.set_ylabel('Y Position')
-                ax.set_zlabel('Z Position')
-                ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.05))
-
-                # Show plot
-                plt.show()
-                """
-            """
-            # Display results
-            cv2.imshow("Background Subtraction", color_image)
-            cv2.imshow("Mask", mask)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                print("amount of datapoints", self.birdie_positions.shape)
-                print("timestep: ", self.CurrentTime)
-                break
-            elif cv2.waitKey(1) & 0xFF == ord('r'):
-                print("reset at frame", self.CurrentTime)
-                # Reset background
-                frames = pipeline.wait_for_frames()
-                color_frame = frames.get_color_frame()
-                background = np.asanyarray(color_frame.get_data())
-                background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-
-                # Reset time and dataframe
-                self.CurrentTime = 0
-                self.birdie_positions = self.birdie_positions.drop(self.birdie_positions.index)
-
-                """
-        
-        ### Court border tracking code ###
-        colors = [(0, 0, 255), (0, 255, 0), (0, 255, 255), (255, 255, 0)]
-        """
-        for i in range(court_corners_RS.shape[0]):
-                court_corner = court_corners_RS[i]
-                print(court_corners_RS)
-                print("test", court_corner)
-                cv2.circle(images, center=(int(court_corner[0]), int(court_corner[1])), radius=2, color=colors[i], thickness=2)
-                
-                fontScale = 2.3
-                fontFace = cv2.FONT_HERSHEY_PLAIN
-                fontColor = (0, 255, 0)
-                fontThickness = 2
-                cv2.putText(images, f"ID: 10", (0, 0), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-       
-            # Show images
-        """
 
         ### BADMINTON COURT VISUALIZATION
         if self.court:
@@ -486,7 +363,10 @@ class RealsenseServer:
         return theta
 
     def get_num_birdies_landed(self):
-        return len([birdie for birdie in self.birdies.values() if birdie.landed])
+        return len([birdie for birdie in self.birdies.values() if birdie.hit_ground])
     
-    def is_last_birdie_inside_court(self):
-        return self.court.is_inside(list(self.birdies.values())[-1])
+    def is_last_birdie_inside_target_area(self, target_area):
+        return self.court.is_inside(list(self.birdies.values())[-1], target_area)
+    
+    def reset_birdies(self):
+        self.birdies = {}

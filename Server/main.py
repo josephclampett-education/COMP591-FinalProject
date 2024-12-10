@@ -96,6 +96,7 @@ def main():
                 realsense.detect_birdies(visualize=True)
                 # c. Look for impact
                 if realsense.get_num_birdies_landed() == num_birdies_landed + 1:
+                    print("Birdie Detected: Proceed to Stage HIT_REACT")
                     # go to next stage after a birdie has been detected as landed
                     num_birdies_landed += 1
                     # d. Robot reacts to hit
