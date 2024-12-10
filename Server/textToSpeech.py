@@ -144,7 +144,6 @@ def process_user_input(user_input):
     intent = responseContent.strip()
     return intent
 
-
 # Speech recognition and command handling
 def listen_and_respond(point_queue, event_queue, robot_commander):
     print("""Hello, I am your badminton practice partner, and you can call me PiPi.
@@ -154,14 +153,12 @@ def listen_and_respond(point_queue, event_queue, robot_commander):
     generate_tts("""Hello, I am your badminton practice partner, and you can call me PiPi.
                  We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton,
                  and the second round is to practice badminton hitting techniques.
-                 First thing first, let me introduce you the basic rules in singles badminton.
-                  """)
+                 First thing first, let me introduce you the basic rules in singles badminton.""")
     time.sleep(2)
     generate_tts("""1. Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court
                  when your score is even; If your score is odd, you start from the left service court.
                  2. Hitting rules: For singles, the boundaires are narrower than doubles: the inner side lines and the back boundary
-                 line are used.
-                  """)
+                 line are used.""")
     time.sleep(2)
     generate_tts("Now, please stand in the position opposite me, let me show you the badminton court")
 
@@ -173,7 +170,7 @@ def listen_and_respond(point_queue, event_queue, robot_commander):
             print(client_input)
 
         intent = process_user_input(client_input)
-        # intent = "98asds8hjw"
+        
         # Act based on the intent
         match intent:
             case "GPTCODE_CONTINUE": # match "continue"
@@ -216,46 +213,3 @@ def listen_and_respond(point_queue, event_queue, robot_commander):
         else:
             print("Player did not respond.")
             """
-
-    """
-
-# obtain audio from the microphone
-r = sr.Recognizer()
-with sr.Microphone() as source:
-    print("Say something!")
-    audio = r.listen(source)
-# recognize speech using Whisper API
-try:
-    client_input = r.recognize_whisper_api(audio, api_key=OpenAI.api_key)
-    print(f"Whisper API thinks you said {client_input}")
-except sr.RequestError as e:
-    print(f"Could not request results from Whisper API; {e}")
-
-
-
-# Creating the request
-response = client.audio.speech.create(
-    model="tts-1",
-    voice="alloy",
-    input="I love u",
-)
-
-# Writing streamed content to a file
-with open("output.mp3", "wb") as output_file:
-    for chunk in response.iter_bytes():
-        output_file.write(chunk)
-
-
-#Speech to text
-audio_file= open("output.mp3", "rb")
-
-transcription = client.audio.transcriptions.create(
-  model="whisper-1",
-  file=audio_file
-)
-print(transcription.text)
-"""
-
-
-
-

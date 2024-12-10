@@ -83,7 +83,7 @@ class RealsenseServer:
         #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
 
 
-    # This function detects aruco markers and birdies and store stheir positions
+    # This function detects aruco markers and birdies and stores their positions
     def detect(self, visualize=True):
         # Initialize the backround after a short delay
         if self.CurrentTime == 50:

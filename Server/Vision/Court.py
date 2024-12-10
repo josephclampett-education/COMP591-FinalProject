@@ -33,7 +33,6 @@ class Court(CourtLocation):
         """
         Check if the birdie is on the left or right side of the court.
         """
-        
 
 
     def display_court(self):
