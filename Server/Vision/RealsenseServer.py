@@ -2,6 +2,7 @@ import select
 import json
 import pyrealsense2 as rs
 import numpy as np
+import os
 import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -39,6 +40,7 @@ class RealsenseServer:
 
         # Config
         self.LIFETIME_THRESHOLD = 3
+        self.BackgroundFilePath = "BackgroundImage.png"
 
         # ================
         # Realsense Setup
@@ -46,6 +48,7 @@ class RealsenseServer:
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         self.config = rs.config()
+        self.depth_intrinsics = None
 
         # Get device product line for setting a supporting resolution
         pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
@@ -62,8 +65,8 @@ class RealsenseServer:
             print("The demo requires Depth camera with Color sensor")
             exit(0)
 
-        self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-        self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+        self.config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+        self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 
         # ArUco
         arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
@@ -77,10 +80,15 @@ class RealsenseServer:
         for i in range(16):
             self.pipeline.wait_for_frames()
 
-        frames = self.pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
-        background = np.asanyarray(color_frame.get_data())
-        self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+        if os.path.exists(self.BackgroundFilePath):
+            self.background = cv2.imread(self.BackgroundFilePath)
+            self.background = cv2.cvtColor(self.background, cv2.COLOR_BGR2GRAY)
+        else:
+            frames = self.pipeline.wait_for_frames()
+            color_frame = frames.get_color_frame()
+            background = np.asanyarray(color_frame.get_data())
+            self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+            cv2.imwrite(self.BackgroundFilePath, self.background)
 
         ### Store the birdie positions # TODO Review if still need
         #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
@@ -90,6 +98,7 @@ class RealsenseServer:
         frames = self.pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
+        self.depth_intrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
         if not depth_frame or not color_frame:
             return
         color_image = np.asanyarray(color_frame.get_data())
@@ -105,7 +114,6 @@ class RealsenseServer:
         depth_frame, color_image = self.capture_frame()
         # Detect aruco markers
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
-        depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
         for i, cornerSet in enumerate(aruco_corners):
             assert(cornerSet.shape[0] == 1)
             cornerSet = cornerSet[0, ...]
@@ -116,13 +124,14 @@ class RealsenseServer:
             centerSS = [(cornerA_x + cornerB_x) / 2.0, (cornerA_y + cornerB_y) / 2]
             centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
 
-            centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
+            centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
+            centerRS = [centerSS[0], centerSS[1], centerZ]
 
             id = aruco_ids[i][0]
             # self.MarkerCentroids[id] = centerRS
             # if self.MarkerAges[id] != -2:
             #     self.MarkerAges[id] = self.CurrentTime
-            if centerZ is not 0:
+            if centerZ != 0:
                 # Match the aruco marker to the robot or the court
                 if id == self.robotArucoId:
                     bottom_left = cornerSet[3]
@@ -138,6 +147,7 @@ class RealsenseServer:
                         if centerZ == 0:
                             raise Exception("Depth value for Court Aruco == 0 => Place court more into the inside of the court")
                         self.court_z = centerZ
+
                         self.court = Court(cornerSet)
                     else:
                         # We assume, that the court does not move
@@ -164,8 +174,6 @@ class RealsenseServer:
         # ==== MARKER TRACKING ====
         # TODO Do I still need this part here
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
-        depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
-
        
         ### --- Birdie Tracking Code --- ###
         ### information ###
@@ -201,7 +209,10 @@ class RealsenseServer:
                 x, y, w, h = cv2.boundingRect(contour)
                 centerSS = (int(x + w/2), int(y + h/2))
                 centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
-                centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
+                centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
+                # TODO CHECK
+                centerRS = [centerSS[0], centerSS[1], centerZ]
+
                 #print(centerZ)
                 # Finded the closest existing Birdie to the current birdie position
                 closest_birdie = self.find_closest_birdie(centerRS)
@@ -317,7 +328,7 @@ class RealsenseServer:
         # self.CurrentTime += 1
     
     # This function detects birdies at collection time
-    def detect_collection_birdies(self):
+    def detect_collection_birdies(self, visualize = False):
         # ==== FRAME QUERYING ====
         depth_frame, color_image = self.capture_frame()
        
@@ -328,7 +339,6 @@ class RealsenseServer:
         ### information ###
         # Convert current frame to grayscale
         gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
-        depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
 
         # Subtract background
         diff = cv2.absdiff(self.background, gray_frame)
@@ -356,10 +366,44 @@ class RealsenseServer:
                 x, y, w, h = cv2.boundingRect(contour)
                 centerSS = (int(x + w/2), int(y + h/2))
                 centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
-                centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
+                centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
+                centerRS = [centerSS[0], centerSS[1], centerZ]
                 
                 newBirdie = Birdie(999, *centerRS, False, (x, y, w, h), contour)
                 birdiesList.append(newBirdie)
+
+        # ==== Visualize ==== #
+        if visualize:
+           
+            # Drawing params
+            fontScale = 2.3
+            fontFace = cv2.FONT_HERSHEY_PLAIN
+            fontColor = (0, 255, 0)
+            fontThickness = 2
+            length = 50
+
+            for birdie in birdiesList:
+                x, y, w, h = birdie.bounding_rect
+                bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
+                cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
+                cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                
+                # TODO Validate result
+                
+                #end_x = int(bx + length * np.cos(np.radians(birdie.angle)))
+                #end_y = int(by+ length * np.sin(np.radians(birdie.angle)))
+                #cv2.line(color_image, (bx, by), (end_x, end_y), (255, 0, 0), 2)
+                #if self.CurrentTime % 20 == 0:
+                    #print("Birdie", birdie.id, bx, birdie.x, by, birdie.y)
+                    #print(x,y)
+        
+            cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('RealSense', color_image)
+            cv2.waitKey(1)
+
+        return birdiesList
 
     # --- Helper Methods --- #
     def find_closest_birdie(self, centerRS, threshold=0.1):

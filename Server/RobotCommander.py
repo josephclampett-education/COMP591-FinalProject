@@ -16,8 +16,11 @@ class Turn:
         return f"{self.direction} {math.degrees(self.radians)}"
 
 class Forward:
+    def __init__(self, radians = 0):
+        self.radians = radians
+
     def __str__(self):
-        return "FORWARD"
+        return f"FORWARD {math.degrees(self.radians)}"
 
 class WheelTurn:
     def __init__(self, turns):
