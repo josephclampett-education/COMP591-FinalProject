@@ -9,18 +9,22 @@ class Direction(StrEnum):
 
 class Turn:
     def __init__(self, radians):
-        self.direction = Direction.LEFT if radians > 0 else Direction.RIGHT
-        self.radians = math.abs(radians)
+        self.direction = Direction.LEFT if radians < 0 else Direction.RIGHT
+        self.radians = abs(radians)
 
     def __str__(self):
         return f"{self.direction} {math.degrees(self.radians)}"
 
 class Forward:
-    def __init__(self, robot_location: Position, target: Position):
-        self.distance = robot_location.flat_distance(target)
+    def __str__(self):
+        return "FORWARD"
+
+class WheelTurn:
+    def __init__(self, turns):
+        self.turns = turns
 
     def __str__(self):
-        return f"FORWARD {self.distance}"
+        return f"WHEEL {self.turns}"
 
 class Stop:
     def __str__(self):
@@ -51,7 +55,3 @@ class RobotCommander:
         # for cmd in commands:
         self.commandBox.send(cmd.__str__())
         print(f"Sending: {cmd}")
-        self.commandBox.wait()  # Wait for EV3's confirmation
-        self.hitBox.wait()
-        print("CResponse:", self.commandBox.read())
-        print("HResponse:", self.hitBox.read())
