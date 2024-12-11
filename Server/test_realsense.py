@@ -62,7 +62,7 @@ def main():
                 # b. Capture background frame of court (includes robot, other birdies, etc.)
                 time.sleep(1)
                 realsense.reset_birdies()
-                realsense.capture_background() # This is the background with the static robot inside of it
+                realsense.capture_hit_background() # This is the background with the static robot inside of it
                 stage = stage.next_stage()
                 pass
             case Stage.HIT_PLAYER:
@@ -100,7 +100,7 @@ def main():
                 pass
             case Stage.COLLECT_PLAN:
                 # a. Take image
-                realsense.capture_background()
+                realsense.capture_hit_background()
                 # b. Make fixed path all the way from first to last one detected
                 pass
             case Stage.COLLECT_ACT:

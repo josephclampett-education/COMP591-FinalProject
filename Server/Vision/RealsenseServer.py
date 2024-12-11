@@ -27,9 +27,9 @@ class RealsenseServer:
         # ================
         # State
         # CalibrationMatrix = np.zeros((4, 4))
-        self.MarkerCentroids = np.zeros((250, 3))
-        self.MarkerAges = np.full(250, -1)
-        self.CurrentTime = 0
+        # self.MarkerCentroids = np.zeros((250, 3))
+        # self.MarkerAges = np.full(250, -1)
+        # self.CurrentTime = 0
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
         self.robot: RobotLocation = None
@@ -74,6 +74,9 @@ class RealsenseServer:
         self.pipeline.start(self.config)
 
         ### get the background frame:
+        for i in range(16):
+            self.pipeline.wait_for_frames()
+
         frames = self.pipeline.wait_for_frames()
         color_frame = frames.get_color_frame()
         background = np.asanyarray(color_frame.get_data())
@@ -93,9 +96,9 @@ class RealsenseServer:
         return depth_frame, color_image
 
     # This function captures the background frame
-    def capture_background(self):
+    def capture_hit_background(self):
         depth_frame, background = self.capture_frame()
-        self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+        self.hit_background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
     # This function detects aruco markers (court and robot)
     def detect_arucos(self):
@@ -116,9 +119,9 @@ class RealsenseServer:
             centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
 
             id = aruco_ids[i][0]
-            self.MarkerCentroids[id] = centerRS
-            if self.MarkerAges[id] != -2:
-                self.MarkerAges[id] = self.CurrentTime
+            # self.MarkerCentroids[id] = centerRS
+            # if self.MarkerAges[id] != -2:
+            #     self.MarkerAges[id] = self.CurrentTime
             if centerZ is not 0:
                 # Match the aruco marker to the robot or the court
                 if id == self.robotArucoId:
@@ -152,7 +155,7 @@ class RealsenseServer:
         if cv2.waitKey(1) & 0xFF == ord('r'):
             print("reset at frame", self.CurrentTime)
             # Reset background
-            self.capture_background()
+            self.capture_hit_background()
 
         # ==== FRAME QUERYING ====
         depth_frame, color_image = self.capture_frame()
@@ -174,7 +177,7 @@ class RealsenseServer:
         gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
 
         # Subtract background
-        diff = cv2.absdiff(self.background, gray_frame)
+        diff = cv2.absdiff(self.hit_background, gray_frame)
 
         # Threshold to create a binary mask
         _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
@@ -311,8 +314,52 @@ class RealsenseServer:
 
         # ==== DEBUG END ====
 
-        self.CurrentTime += 1
+        # self.CurrentTime += 1
     
+    # This function detects birdies at collection time
+    def detect_collection_birdies(self):
+        # ==== FRAME QUERYING ====
+        depth_frame, color_image = self.capture_frame()
+       
+        ### --- Birdie Tracking Code --- ###
+        ### information ###
+        # x is the width value. Center of camera is 0 width right going positiv
+        # y is the height value. Center of camera is 0 width downwards going positiv
+        ### information ###
+        # Convert current frame to grayscale
+        gray_frame = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+        depthIntrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
+
+        # Subtract background
+        diff = cv2.absdiff(self.background, gray_frame)
+
+        # Threshold to create a binary mask
+        _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
+        #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        #print(threshhold)
+        # Apply morphological operations to clean the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+        # Apply morphological closing to merge nearby contours
+        # This kernelsize was chosen to merge the head and the feathers of the birdie into one object
+        kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel2)
+
+        # Find contours of the birdies
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        birdiesList = []
+        for contour in contours:
+            if cv2.contourArea(contour) > 50:  # Filter small blobs
+
+                x, y, w, h = cv2.boundingRect(contour)
+                centerSS = (int(x + w/2), int(y + h/2))
+                centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
+                centerRS = rs.rs2_deproject_pixel_to_point(depthIntrinsics, centerSS, centerZ)
+                
+                newBirdie = Birdie(999, *centerRS, False, (x, y, w, h), contour)
+                birdiesList.append(newBirdie)
 
     # --- Helper Methods --- #
     def find_closest_birdie(self, centerRS, threshold=0.1):
