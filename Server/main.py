@@ -21,7 +21,7 @@ from Server.Path import next_collection_taget
 from Server.Lesson import make_lesson
 
 
-class Stage(Enum): 
+class Stage(Enum):
     STARTUP = auto() #1
     STARTGAME = auto() #2
     HIT_INSTRUCT = auto() #3
@@ -37,10 +37,44 @@ class Stage(Enum):
         stage = list(self.__class__)
         return stage[(self.value - 1 + 1) % len(stage)]
 
-
+class DriveStage(Enum):
+    START = auto()
+    WAIT_ANGLE = auto()
+    WAIT_DIST = auto()
+    DONE = auto()
 
 def has_collected(robot_location, birdie_position):
-    return robot_location.flat_distance(birdie_position) < robot_location.flat_distance(robot_location.get_gripper_position)
+    return robot_location.flat_distance(birdie_position) < robot_location.flat_distance(robot_location.get_grabber_position())
+
+def check_driving(drive_stage, robot_location: Location.RobotLocation, turn_direction, drive_target, robot_commander):
+    match drive_stage:
+        case DriveStage.START:
+            if turn_direction is None:
+                turn_direction = robot_location.angle_to(drive_target)
+            robot_commander.send_command(RobotCommander.Turn(turn_direction))
+            drive_stage = DriveStage.WAIT_ANGLE
+        case DriveStage.WAIT_ANGLE:
+            angle_diff = robot_location.angle_to(drive_target)
+            if abs(angle_diff) < 0.01:
+                robot_commander.send_command(RobotCommander.Forward())
+                turn_direction = None
+                drive_stage = DriveStage.WAIT_DIST
+            else:
+                robot_commander.send_command(RobotCommander.Turn(turn_direction))
+        case DriveStage.WAIT_DIST:
+            distance = robot_location.flat_distance(drive_target)
+            print(distance)
+            if distance < 0.02:
+                robot_commander.send_command(RobotCommander.Stop())
+                drive_target = None
+                drive_stage = DriveStage.DONE
+            else:
+                robot_commander.send_command(RobotCommander.Forward())
+                turn_direction = robot_location.angle_to(drive_target)
+                if abs(turn_direction) > 0.01:
+                    robot_commander.send_command(RobotCommander.Turn(turn_direction))
+
+    return (drive_stage, turn_direction, drive_target)
 
 def main():
 
