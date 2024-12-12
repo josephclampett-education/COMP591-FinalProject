@@ -16,7 +16,7 @@ from queue import Queue
 from threading import Event, Thread
 from enum import Enum, auto
 import Server.RobotCommander as RobotCommander
-from Server.Path import next_collection_taget
+from Server.Path import next_collection_target
 from Server.Lesson import make_lesson
 
 

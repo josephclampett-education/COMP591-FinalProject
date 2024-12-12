@@ -15,7 +15,7 @@ def turning_right_possible(right_turning_angle, right_closest_angle):
     return right_turning_angle > modN(right_closest_angle + Location.RobotLocation.grabber_angle, -2 * math.pi)
 
 # Returns the best next collection target and which angle the robot has to turn in radians
-def next_collection_taget(robot_location: Location.RobotLocation, birdie_positions: list):
+def next_collection_target(robot_location: Location.RobotLocation, birdie_positions: list):
     # birdie could be between wheel and grabber
     # don't run over birdie with wheel
     # avoid pushing birdie away with grabber
@@ -78,7 +78,7 @@ def main():
                Location.Position(0,-1,0),
                Location.Position(-1,0,0),
                Location.Position(300, 0,0)]
-    next, angle = next_collection_taget(robot, birdies)
+    next, angle = next_collection_target(robot, birdies)
     print(next)
     print(angle)
 
