@@ -17,7 +17,7 @@ from queue import Queue
 from threading import Event, Thread
 from enum import Enum, auto
 import Server.RobotCommander as RobotCommander
-from Server.Path import next_collection_target
+import Path
 from Server.Lesson import make_lesson
 
 
@@ -186,6 +186,7 @@ def main():
             case Stage.COLLECT_PLAN:
                 # a. Take image
                 collectBirdies = realsense.detect_collection_birdies()
+                path = Path.make_path(realsense.robot, collectBirdies)
                 # b. Make fixed path all the way from first to last one detected
                 # c. Return robot to court
                 robot_commander.send_command(RobotCommander.WheelTurn(-2))
@@ -194,6 +195,10 @@ def main():
                 # a. Drive from point to point, grabbing at each stop
                 # b. Don’t worry about if some weren’t collected
                 # c. Return to COLLECT_EVACUATE
+                if drive_stage is None or drive_stage == DriveStage.DONE:
+                    if len(path) > 0:
+                        drive_stage = DriveStage.START
+                        drive_target, turn_direction = path.popleft()
                 pass
 
         # if not textToSpeechThread.is_alive():
