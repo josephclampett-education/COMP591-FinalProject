@@ -45,13 +45,13 @@ class BirdieLocation(Position, Orientation):
 
 class RobotLocation(Position, Orientation):
     _grabber_length = 30 # TODO
-    center_to_grabber_tip = 50 # TODO
-    grabber_angle = math.radians(25) # TODO
+    center_to_grabber_tip = 110 # TODO
+    grabber_angle = math.radians(30) # TODO
 
     def __init__(self, x, y, z, angle):
         Position.__init__(self, x, y, z)
         Orientation.__init__(self, angle)
-    
+
     def update(self, x, y, z, angle):
         self.x = x
         self.y = y
@@ -79,9 +79,9 @@ class CourtLocation():
     SCALE = 40
 
     def __init__(self, aruco_corners):
-        self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)    
-    
-    
+        self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)
+
+
     def calculate_court_corners(self, aruco_corners):
         """
         Calculate the court corners based on the ArUco corners.
@@ -105,22 +105,22 @@ class CourtLocation():
         vDC = np.array([dDC_x, dDC_y]) / vDC_norm
 
         # Calculate the court corners
-        
+
         # bottom right net
         court_cornerR = cornerD
 
         # bottom left net
         court_cornerL = (self.SCALE * self.WIDTH * vDA) + court_cornerR
-        
+
         # top right serve zone
         serve_cornerTR = (self.SCALE * self.LENGTH * vDC) + court_cornerR
-        
+
         # top left serve zone
         serve_cornerTL = court_cornerL + serve_cornerTR - court_cornerR
-        
+
         # top middle serve zone
         serve_cornerTM = self.calculate_midpoint2d(serve_cornerTR, serve_cornerTL)
-        
+
         # right bottom serve zone
         serve_cornerBR = (self.SCALE * self.MIDDLE_TO_SERVEZONE * vDC) + court_cornerR
 
