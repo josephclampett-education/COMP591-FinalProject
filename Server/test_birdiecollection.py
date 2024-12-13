@@ -118,6 +118,7 @@ def main():
             case Stage.COLLECT_PLAN:
                 # a. Take image
                 collectionBirdies = realsense.detect_collection_birdies()
+                path = Path.make_path(realsense.robot, collectBirdies)
 
                 time.sleep(7)
 
@@ -125,16 +126,15 @@ def main():
                 # c. Return robot to court
                 robot_commander.send_command(RobotCommander.WheelTurn(-500))
                 time.sleep(7)
-                
+
                 stage = Stage.COLLECT_ACT
 
             case Stage.COLLECT_ACT:
                 # Get birdie
-                if drive_stage is None:
-                    drive_stage = DriveStage.START
-                    drive_target = collectionBirdies[0]
-                if drive_stage == DriveStage.DONE:
-                    stage = Stage.COLLECT_EVACUATE
+                if drive_stage is None or drive_stage == DriveStage.DONE:
+                    if len(path) > 0:
+                        drive_stage = DriveStage.START
+                        drive_target, turn_direction = path.popleft()
 
 if __name__ == "__main__":
     main()
