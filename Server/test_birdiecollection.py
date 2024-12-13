@@ -16,7 +16,7 @@ from queue import Queue
 from threading import Event, Thread
 from enum import Enum, auto
 import Server.RobotCommander as RobotCommander
-from Server.Path import next_collection_target
+import Server.Path as Path
 from Server.Lesson import make_lesson
 
 
@@ -36,6 +36,15 @@ class Stage(Enum):
         print(f"{self} done")
         return stage[(self.value - 1 + 1) % len(stage)]
 
+class DriveState:
+    def __init__(self, target, robot_location: Location.RobotLocation, angle=None, stage=DriveStage.START):
+        self.stage = stage
+        self.target = target
+        if angle is None:
+            self.angle = robot_location.angle_to(target)
+        else:
+            self.angle = angle
+
 class DriveStage(Enum):
     START = auto()
     WAIT_ANGLE = auto()
@@ -45,34 +54,30 @@ class DriveStage(Enum):
 def has_collected(robot_location, birdie_position):
     return robot_location.flat_distance(birdie_position) < robot_location.flat_distance(robot_location.get_grabber_position())
 
-def check_driving(drive_stage, robot_location: Location.RobotLocation, turn_direction, drive_target, robot_commander):
-    match drive_stage:
+def check_driving(drive_state: DriveState, robot_location: Location.RobotLocation, robot_commander):
+    match drive_state.stage:
         case DriveStage.START:
-            if turn_direction is None:
-                turn_direction = robot_location.angle_to(drive_target)
-            robot_commander.send_command(RobotCommander.Turn(turn_direction))
-            drive_stage = DriveStage.WAIT_ANGLE
+            robot_commander.send_command(RobotCommander.Turn(drive_state.angle))
+            drive_state.stage = DriveStage.WAIT_ANGLE
         case DriveStage.WAIT_ANGLE:
-            angle_diff = robot_location.angle_to(drive_target)
-            if abs(angle_diff) < 0.01:
+            angle_diff = robot_location.angle_to(drive_state.target)
+            if abs(angle_diff) < math.radians(2):
                 robot_commander.send_command(RobotCommander.Forward())
-                turn_direction = None
-                drive_stage = DriveStage.WAIT_DIST
+                drive_state.stage = DriveStage.WAIT_DIST
         case DriveStage.WAIT_DIST:
-            distance = robot_location.flat_distance(drive_target)
+            distance = robot_location.flat_distance(drive_state.target)
             print(f"P: ({robot_location.x}, {robot_location.y}), D: {distance}")
             if distance < 5:
                 robot_commander.send_command(RobotCommander.Stop())
-                drive_target = None
-                drive_stage = DriveStage.DONE
+                drive_state.stage = DriveStage.DONE
             else:
-                turn_direction = robot_location.angle_to(drive_target)
-                if abs(turn_direction) > math.radians(1):
-                    robot_commander.send_command(RobotCommander.Forward(turn_direction))
+                drive_state.angle = robot_location.angle_to(drive_state.target)
+                if abs(drive_state.angle) > math.radians(1):
+                    robot_commander.send_command(RobotCommander.Forward(drive_state.angle))
                 else:
                     robot_commander.send_command(RobotCommander.Forward())
 
-    return (drive_stage, turn_direction, drive_target)
+    return drive_state
 
 def main():
 
@@ -83,11 +88,9 @@ def main():
     input("Press to continue")
     print("c")
 
-    # initialize Stage controll enum
+    # initialize Stage control enum
     stage = Stage.COLLECT_EVACUATE
-    drive_stage = None
-    drive_target = None
-    turn_direction = None
+    drive_state = None
     BIRDIES_PER_ROUND = 1
     collectionBirdies = []
     while True:
@@ -95,11 +98,9 @@ def main():
         # Here perform actions that should be executed all the time
         realsense.detect_arucos()
 
-        drive_stage, turn_direction, drive_target = check_driving(
-            drive_stage=drive_stage,
+        drive_state = check_driving(
+            drive_state=drive_state,
             robot_location=realsense.robot,
-            turn_direction=turn_direction,
-            drive_target=drive_target,
             robot_commander=robot_commander,
             )
 
@@ -107,12 +108,11 @@ def main():
         match stage:
             case Stage.COLLECT_EVACUATE:
                 # Robot drives off court in a controlled way (we need to get it back on the court again)
-                if drive_stage is None:
-                    drive_stage = DriveStage.START
-                    drive_target = Location.Position(110, 110, 0)
-                if drive_stage == DriveStage.DONE:
+                if drive_state is None:
+                    drive_state = DriveState(target=Location.Position(110, 110, 0), robot_location=realsense.robot)
+                if drive_state.stage == DriveStage.DONE:
                     robot_commander.send_command(RobotCommander.WheelTurn(500))
-                    drive_stage = None
+                    drive_state = None
                     stage = Stage.COLLECT_PLAN
 
             case Stage.COLLECT_PLAN:
@@ -131,10 +131,10 @@ def main():
 
             case Stage.COLLECT_ACT:
                 # Get birdie
-                if drive_stage is None or drive_stage == DriveStage.DONE:
+                if drive_state is None or drive_state.stage == DriveStage.DONE:
                     if len(path) > 0:
-                        drive_stage = DriveStage.START
                         drive_target, turn_direction = path.popleft()
+                        drive_state = DriveState(target=drive_target, robot_location=realsense.robot, angle=turn_direction)
 
 if __name__ == "__main__":
     main()
