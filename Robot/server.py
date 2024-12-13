@@ -23,7 +23,7 @@ right_motor = Motor(Port.B)
 grab_motor = Motor(Port.C)
 
 # Initialize the drive base.
-robot = DriveBase(left_motor, right_motor, wheel_diameter=55.5, axle_track=104)
+robot = DriveBase(left_motor, right_motor, wheel_diameter=54.0, axle_track=119)
 
 server = BluetoothMailboxServer()
 commandBox = TextMailbox('command', server)
@@ -33,6 +33,7 @@ hitBox = TextMailbox('hit', server)
 print('waiting for connection...')
 server.wait_for_connection()
 print('connected!')
+
 
 # In this program, the server waits for the client to send the first message
 # and then sends a reply.
@@ -51,10 +52,11 @@ while True:
     elif command == "END":
         print('END')
         ev3.speaker.beep()
+        grab_motor.run_angle(90, 90) #TODO
         break
     elif command == "GRAB":
         print('GRAB')
-        grab_motor.run(-20)
+        grab_motor.run_angle(90, 90)
         wait(100)
     elif command.startswith("FORWARD"):
         print('FORWARD')
