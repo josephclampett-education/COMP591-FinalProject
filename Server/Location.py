@@ -20,6 +20,9 @@ class Position:
     def __eq__(self, other):
         return isinstance(other, self.__class__) and (self.x, self.y, self.z) == (other.x, other.y, other.z)
 
+    def get_pos(self):
+        return [float(self.x), float(self.y), float(self.z)]
+    
     def is_close(self, other):
         diff = self - other
         return math.sqrt(diff.x**2 + diff.y**2 + diff.z**2) < 20 # TODO: threshold
@@ -78,10 +81,14 @@ class CourtLocation():
 
     SCALE = 40
 
-    def __init__(self, aruco_corners):
-        self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)
-
-
+    def __init__(self, aruco_corners=None, court_corners=None):
+        if aruco_corners is not None:
+            self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)    
+        elif court_corners is not None:
+            self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = [Position(*corner) for corner in court_corners] 
+        else:
+            raise Exception("ERROR: Court has to be initialized either with aruco_corners or court_corners!")       
+    
     def calculate_court_corners(self, aruco_corners):
         """
         Calculate the court corners based on the ArUco corners.

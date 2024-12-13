@@ -2,8 +2,16 @@ import numpy as np
 from Server.Location import CourtLocation, BirdieLocation
 
 class Court(CourtLocation):
-    def __init__(self, aruco_corners):
-        CourtLocation.__init__(self, aruco_corners)
+    def __init__(self):
+        self.is_locked = False
+
+    def set_corners(self, aruco_corners=None, court_corners=None):
+        if aruco_corners is not None:
+            CourtLocation.__init__(self, aruco_corners=aruco_corners)
+        elif court_corners is not None:
+            CourtLocation.__init__(self, court_corners=court_corners)
+        else:
+            raise Exception("ERROR: Court has to be initialized either with aruco_corners!")       
 
     def is_inside(self, birdie: BirdieLocation, side='all'):
         """

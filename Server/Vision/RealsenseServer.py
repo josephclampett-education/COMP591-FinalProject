@@ -33,14 +33,18 @@ class RealsenseServer:
         # self.CurrentTime = 0
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
+        self.robotArucoVisible = None
+        self.courtArucoVisible = None
+        self.courtArucoHasBeenFound = False
         self.robot: RobotLocation = None
         self.birdies: Dict[Birdie] = {}
         self.next_birdie_id = 0
-        self.court: Court = None
+        self.court: Court = Court()
 
         # Config
         self.LIFETIME_THRESHOLD = 3
         self.BackgroundFilePath = "BackgroundImage.png"
+        self.court_pos_file_path = "court_position.json"
 
         # ================
         # Realsense Setup
@@ -90,8 +94,13 @@ class RealsenseServer:
             self.background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
             cv2.imwrite(self.BackgroundFilePath, self.background)
 
-        ### Store the birdie positions # TODO Review if still need
-        #self.birdie_positions = pd.DataFrame(columns=['frame', 'id', 'x', 'y', 'z'])
+        ### get the court coordinates from json file
+        if os.path.exists(self.court_pos_file_path) and self.court is None:
+            print("court object loaded from json file")
+            with open(self.court_pos_file_path, "r") as file:
+                loaded_data = json.load(file)
+                court_corners = [corner for corner in loaded_data.values()]
+                self.court = Court(court_corners=court_corners)
 
     # This function captures a frame
     def capture_frame(self):
@@ -104,16 +113,35 @@ class RealsenseServer:
         color_image = np.asanyarray(color_frame.get_data())
         return depth_frame, color_image
 
-    # This function captures the background frame
+    # This function captures the second background frame after a birdie hit
     def capture_hit_background(self):
-        depth_frame, background = self.capture_frame()
+        _, background = self.capture_frame()
         self.hit_background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
 
     # This function detects aruco markers (court and robot)
-    def detect_arucos(self):
-        depth_frame, color_image = self.capture_frame()
+    def detect_arucos(self, image=None):
+        if image is not None:
+            depth_frame, color_image = image
+        else:
+            depth_frame, color_image = self.capture_frame()
         # Detect aruco markers
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
+        
+        # Set the current visibility status for both of the arucos
+        if aruco_ids is not None and len(aruco_ids) > 0:
+            if any(aruco_id[0] == self.courtArucoId for aruco_id in aruco_ids):
+                self.courtArucoVisible = True
+                self.courtArucoHasBeenFound = True
+            else:
+                self.courtArucoVisible = False
+            if any(aruco_id[0] == self.robotArucoId for aruco_id in aruco_ids):
+                self.robotArucoVisible = True
+            else:
+                self.robotArucoVisible = False
+        else:
+            self.courtArucoVisible = False
+            self.robotArucoVisible = False
+
         for i, cornerSet in enumerate(aruco_corners):
             assert(cornerSet.shape[0] == 1)
             cornerSet = cornerSet[0, ...]
@@ -128,9 +156,7 @@ class RealsenseServer:
             centerRS = [centerSS[0], centerSS[1], centerZ]
 
             id = aruco_ids[i][0]
-            # self.MarkerCentroids[id] = centerRS
-            # if self.MarkerAges[id] != -2:
-            #     self.MarkerAges[id] = self.CurrentTime
+
             if centerZ != 0:
                 # Match the aruco marker to the robot or the court
                 if id == self.robotArucoId:
@@ -143,15 +169,12 @@ class RealsenseServer:
                     else:
                         self.robot.update(*centerRS, theta)
                 elif id == self.courtArucoId:
-                    if self.court is None:
+                    if not self.court.is_locked:
                         if centerZ == 0:
                             raise Exception("Depth value for Court Aruco == 0 => Place court more into the inside of the court")
                         self.court_z = centerZ
 
-                        self.court = Court(cornerSet)
-                    else:
-                        # We assume, that the court does not move
-                        pass
+                        self.court.set_corners(aruco_corners = cornerSet)
                 else:
                     print("Unidentified aruco marker at: ", centerRS)
 
@@ -172,10 +195,9 @@ class RealsenseServer:
 
         
         # ==== MARKER TRACKING ====
-        # TODO Do I still need this part here
-        aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
-       
-        ### --- Birdie Tracking Code --- ###
+        aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)       
+
+        # ==== BIRDIE TRACKING ====
         ### information ###
         # x is the width value. Center of camera is 0 width right going positiv
         # y is the height value. Center of camera is 0 width downwards going positiv
@@ -190,7 +212,7 @@ class RealsenseServer:
         # Threshold to create a binary mask
         _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
         #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        #print(threshhold)
+        
         # Apply morphological operations to clean the mask
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -213,7 +235,6 @@ class RealsenseServer:
                 # TODO CHECK
                 centerRS = [centerSS[0], centerSS[1], centerZ]
 
-                #print(centerZ)
                 # Finded the closest existing Birdie to the current birdie position
                 closest_birdie = self.find_closest_birdie(centerRS)
                 if closest_birdie:
@@ -404,6 +425,83 @@ class RealsenseServer:
             cv2.waitKey(1)
 
         return birdiesList
+
+
+    def save_court_position(self):
+        print("save_court_position_called")
+        if os.path.exists(self.court_pos_file_path):
+            return
+
+        while not self.court.is_locked:
+            depth_frame, color_image = self.capture_frame()
+            self.detect_arucos(image=[depth_frame, color_image]) # This updates the court object
+            if self.courtArucoHasBeenFound == False:
+                continue
+        
+            # Define connections for the court and serving box
+            court_connections = [(self.court.CL, self.court.CR)]  # Only one line for court boundary
+            serve_box_connections = [
+                (self.court.STL, self.court.STM),  # Top of the serving box
+                (self.court.STM, self.court.STR),
+                (self.court.STR, self.court.SBR),  # Right side
+                (self.court.SBR, self.court.SBM),  # Bottom of the serving box
+                (self.court.SBM, self.court.SBL),
+                (self.court.SBL, self.court.STL),  # Left side
+                (self.court.SBM, self.court.STM)
+            ]
+
+            # Draw court boundary lines
+            for corner1, corner2 in court_connections:
+                cv2.line(color_image, 
+                        (int(corner1.x), int(corner1.y)), 
+                        (int(corner2.x), int(corner2.y)), 
+                        (255, 0, 0), 2)  # Blue for court boundary
+
+            # Draw serving box lines
+            for corner1, corner2 in serve_box_connections:
+                cv2.line(color_image, 
+                        (int(corner1.x), int(corner1.y)), 
+                        (int(corner2.x), int(corner2.y)), 
+                        (0, 0, 255), 2)  # Red for serving box
+
+            # Annotate the corners
+            labels = ['CL', 'CR', 'STL', 'STM', 'STR', 'SBR', 'SBM', 'SBL']
+            court_corners = [self.court.CL, self.court.CR, self.court.STL, self.court.STM, self.court.STR, self.court.SBR, self.court.SBM, self.court.SBL]
+            print(self.court.SBL)
+            fontScale = 2.3
+            fontFace = cv2.FONT_HERSHEY_PLAIN
+            fontThickness = 2
+            for i, corner in enumerate(court_corners):
+                cv2.circle(color_image, center=(int(corner.x), int(corner.y)), radius=5, color=(0, 255, 0), thickness=-1)
+                cv2.putText(color_image, labels[i], (int(corner.x) + 10, int(corner.y) + 10), fontFace, (fontScale * 0.4), (0, 255, 0), fontThickness, cv2.LINE_AA)
+
+            cv2.namedWindow('CourtOrienting', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('CourtOrienting', color_image)
+            
+            # Wait till keypress which will initiate saving court position into file
+            if cv2.waitKey(1) & 0xFF == ord('r'):
+                self.court.is_locked = True
+                cv2.destroyAllWindows()
+
+        # order must match initialization order in CourtLocation class
+        data = {
+            "CL": self.court.CL.get_pos(),
+            "CR": self.court.CR.get_pos(),
+            "STL": self.court.STL.get_pos(),
+            "STM": self.court.STM.get_pos(),
+            "STR": self.court.STR.get_pos(),
+            "SBR": self.court.SBR.get_pos(),
+            "SBM": self.court.SBM.get_pos(),
+            "SBL": self.court.SBL.get_pos(),
+        }
+        print(data)
+        with open(self.court_pos_file_path, "w") as file:
+            json.dump(data, file)
+        
+        return
+
+
+
 
     # --- Helper Methods --- #
     def find_closest_birdie(self, centerRS, threshold=0.1):

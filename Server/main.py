@@ -22,15 +22,17 @@ from Server.Lesson import make_lesson
 
 
 class Stage(Enum):
-    STARTUP = auto() #1
-    STARTGAME = auto() #2
-    HIT_INSTRUCT = auto() #3
-    HIT_PLAYER = auto() #4
-    HIT_REACT = auto() #5
-    ROUND_END = auto() #6
-    COLLECT_EVACUATE = auto() #7
-    COLLECT_PLAN = auto() #8
-    COLLECT_ACT = auto() #9
+    STARTUP_COURT = auto() #1
+    STARTUP_REMOVE_COURT_ARUCO = auto() #2
+    STARTUP_ROBOT = auto() #3
+    STARTGAME = auto() #4
+    HIT_INSTRUCT = auto() #5
+    HIT_PLAYER = auto() #6
+    HIT_REACT = auto() #7
+    ROUND_END = auto() #8
+    COLLECT_EVACUATE = auto() #9
+    COLLECT_PLAN = auto() #10
+    COLLECT_ACT = auto() #11
 
 
     def next_stage(self):
@@ -104,7 +106,7 @@ def main():
 
 
     # initialize Stage controll enum
-    stage = Stage.STARTUP
+    stage = Stage.STARTUP_COURT
     drive_stage = None
     drive_target = None
     turn_direction = None
@@ -125,12 +127,19 @@ def main():
 
         # Here perform actions that should be executed depending on the stage
         match stage:
-            case Stage.STARTUP:
-                # Initialize all components
-                # a. Realsense camera should detect court and robot
-                if realsense.found_arucos(): # TODO add other conditions here that are needed to process to next stage
+            case Stage.STARTUP_COURT:
+                print("found court")
+                print("Now orient court aruco to match the perfect position:")
+                realsense.save_court_position() # this function requires a 'r' keypress to exit
+                stage = stage.next_stage()
+            case Stage.STARTUP_REMOVE_COURT_ARUCO:
+            
+                # The court aruco should be removed
+                if realsense.courtArucoVisible == False:
                     stage = stage.next_stage()
-                pass
+            case Stage.STARTUP_ROBOT:
+                if realsense.robot != None and realsense.robotArucoVisible == True:
+                    stage = stage.next_stage()
             case Stage.STARTGAME:
                 # TODO Do we need this stage?
                 pass
