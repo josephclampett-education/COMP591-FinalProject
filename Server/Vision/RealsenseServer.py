@@ -185,11 +185,11 @@ class RealsenseServer:
 
     # This function detects aruco markers and birdies and store stheir positions
     def detect_birdies(self, visualize=True):
-        # Initialize the backround after a short delay
-        if cv2.waitKey(1) & 0xFF == ord('r'):
-            print("reset at frame", self.CurrentTime)
-            # Reset background
-            self.capture_hit_background()
+        # # Initialize the backround after a short delay
+        # if cv2.waitKey(1) & 0xFF == ord('r'):
+        #     print("reset at frame", self.CurrentTime)
+        #     # Reset background
+        #     self.capture_hit_background()
 
         # ==== FRAME QUERYING ====
         depth_frame, color_image = self.capture_frame()
