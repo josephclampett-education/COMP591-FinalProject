@@ -22,7 +22,7 @@ This class exposes the information of the objects.
 """
 class RealsenseServer:
 
-    def __init__(self, robotArucoId, courtArucoId):
+    def __init__(self, robotArucoId, courtArucoId, areaThreshold = 500):
         # ================
         # Data
         # ================
@@ -33,6 +33,7 @@ class RealsenseServer:
         # self.CurrentTime = 0
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
+        self.areaThreshold = areaThreshold
         self.robotArucoVisible = None
         self.courtArucoVisible = None
         self.courtArucoHasBeenFound = False
@@ -226,7 +227,7 @@ class RealsenseServer:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         new_birdies = {}
         for contour in contours:
-            if cv2.contourArea(contour) > 50:  # Filter small blobs
+            if cv2.contourArea(contour) > self.areaThreshold:  # Filter small blobs
 
                 x, y, w, h = cv2.boundingRect(contour)
                 centerSS = (int(x + w/2), int(y + h/2))
@@ -382,7 +383,8 @@ class RealsenseServer:
         
         birdiesList = []
         for contour in contours:
-            if cv2.contourArea(contour) > 50:  # Filter small blobs
+            if cv2.contourArea(contour) > self.areaThreshold:  # Filter small blobs
+                print(f"Birdie, CA: {cv2.contourArea(contour)}")
 
                 x, y, w, h = cv2.boundingRect(contour)
                 centerSS = (int(x + w/2), int(y + h/2))
@@ -521,6 +523,7 @@ class RealsenseServer:
         delta_x = (corner_bottom_left[0] - corner_top_left[0])
         delta_y = (corner_bottom_left[1] - corner_top_left[1])
         theta = np.arctan2(delta_y, delta_x)
+
         return theta
 
     def get_num_birdies_landed(self):

@@ -75,7 +75,6 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
                 distance = robot_location.flat_distance(drive_state.target)
                 print(f"P: ({robot_location.x}, {robot_location.y}), D: {distance}")
                 if distance < 5:
-                    robot_commander.send_command(RobotCommander.Stop())
                     drive_state.stage = DriveStage.DONE
                 else:
                     angle_diff = robot_location.angle_to(drive_state.target)
@@ -91,7 +90,7 @@ def main():
 
     robot_commander = RobotCommander.RobotCommander()
 
-    realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181)
+    realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181, areaThreshold=700)
 
     input("Press to continue")
     print("c")
@@ -116,6 +115,7 @@ def main():
         # Here perform actions that should be executed depending on the stage
         match stage:
             case Stage.STARTGAME:
+                robot_commander.send_command(RobotCommander.Stop())
                 robot_commander.send_command("END")
                 break
             case Stage.COLLECT_EVACUATE:
@@ -144,9 +144,6 @@ def main():
                 # c. Return robot to court
                 robot_commander.send_command(RobotCommander.WheelTurn(-500))
                 time.sleep(5)
-
-                
-
             case Stage.COLLECT_ACT:
                 # Get birdie
                 if drive_state is None or drive_state.stage == DriveStage.DONE:
@@ -156,7 +153,6 @@ def main():
                     else:
                         stage = Stage.COLLECT_EVACUATE
                         drive_state = None
-
 
 if __name__ == "__main__":
     main()

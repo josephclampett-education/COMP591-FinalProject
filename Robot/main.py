@@ -27,12 +27,12 @@ robot = DriveBase(left_motor, right_motor, wheel_diameter=54.0, axle_track=119)
 
 server = BluetoothMailboxServer()
 commandBox = TextMailbox('command', server)
-hitBox = TextMailbox('hit', server)
+# hitBox = TextMailbox('hit', server)
 
 # The server must be started before the client!
-print('waiting for connection...')
+# print('waiting for connection...')
 server.wait_for_connection()
-print('connected!')
+# print('connected!')
 
 def close_grabber():
     if abs(grab_motor.angle()) < 5:
@@ -49,36 +49,37 @@ while True:
     commandBox.wait()
     command = commandBox.read()
 
-    print('Read')
+    # print('Read')
 
     if command.startswith("LEFT"):
-        print('LEFT')
+        # print('LEFT')
         close_grabber()
         robot.drive(0, -20)
     elif command.startswith("RIGHT"):
-        print('RIGHT')
+        # print('RIGHT')
         close_grabber()
         robot.drive(0, 20)
     elif command == "END":
-        print('END')
+        # print('END')
         ev3.speaker.beep()
         open_grabber()
         break
     elif command.startswith("FORWARD"):
-        print('FORWARD')
+        # print('FORWARD')
         angle = float(command.split()[1])
         open_grabber()
         robot.drive(80, angle)
     elif command == "STOP":
         robot.stop()
     elif command.startswith("WHEEL"):
+        robot.stop()
         open_grabber()
         turns = float(command.split()[1])
         robot.straight(turns)
     elif command.startswith("RESET_GRABBER_ANGLE"):
         grab_motor.reset_angle(0)
 
-    print('PreSend')
+    # print('PreSend')
     # commandBox.send('received' + command)
 
     # hitBox.send('hit')

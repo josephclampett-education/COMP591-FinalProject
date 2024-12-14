@@ -48,7 +48,7 @@ class BirdieLocation(Position, Orientation):
 
 class RobotLocation(Position, Orientation):
     _grabber_length = 30 # TODO
-    center_to_grabber_tip = 180 # TODO
+    center_to_grabber_tip = 160 # TODO
     grabber_angle = math.radians(40) # TODO
 
     def __init__(self, x, y, z, angle):
@@ -70,8 +70,17 @@ class RobotLocation(Position, Orientation):
 
     # returns the angle the robot has to turn to face other
     def angle_to(self, other):
-        temp = other - self
-        return math.atan2(temp.y, temp.x) - self.angle
+        bearingVector = other - self
+        bearingAngle = math.atan2(bearingVector.y, bearingVector.x)
+
+        deltaAngle = bearingAngle - self.angle
+
+        if deltaAngle > math.pi:
+            deltaAngle -= 2 * math.pi 
+        if deltaAngle < -math.pi:
+            deltaAngle += 2 * math.pi 
+
+        return deltaAngle
 
 
 class CourtLocation():

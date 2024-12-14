@@ -98,7 +98,12 @@ def make_path(robot_location: Location.RobotLocation, birdie_positions: list, vi
         except ValueError:
             # the next position might be going straight, which is not in the list
             pass
-        current_robot = Location.RobotLocation(next_pos.x, next_pos.y, next_pos.z, next_angle)
+        robot_next_angle = current_robot.angle + next_angle
+        if robot_next_angle > math.pi:
+            robot_next_angle -= 2 * math.pi 
+        if robot_next_angle < -math.pi:
+            robot_next_angle += 2 * math.pi 
+        current_robot = Location.RobotLocation(next_pos.x, next_pos.y, next_pos.z, robot_next_angle)
     return path
 
 def main():
