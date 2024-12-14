@@ -9,11 +9,11 @@ class Birdie(BirdieLocation):
         self.history = [(x, y, z)]  # Initialize with the current position
         self.trajectory = None # Can be 'left2left', 'left2right', 'right2right', 'right2left'
 
-    def update(self, x, y, z, bounding_rect, contour, court_z, id):
+    def update(self, x, y, z, bounding_rect, contour, court_z):
         if self.hit_ground:
             # Do not update the position if the birdie has hit the ground
             return
-        
+
         self.x = x
         self.y = y
         self.z = z
@@ -32,14 +32,14 @@ class Birdie(BirdieLocation):
         rect = cv2.minAreaRect(self.contour)
         angle = rect[2]
         return angle
-    
+
     def calculate_x_trajectory(self):
         # Calculate the trajectory based on the history
         if len(self.history) < 2:
             print("ERROR: Not enough history points to calculate trajectory")
             return None
 
-        # Calculate the average moving x direction        
+        # Calculate the average moving x direction
         delta_x = 0
         for i in range(len(self.history)-1):
             x1 = self.history[i][1] # older datapoint

@@ -236,7 +236,7 @@ class RealsenseServer:
                 centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
                 # TODO CHECK
                 centerRS = [centerSS[0], centerSS[1], centerZ]
-                
+
                 if self.tracked_hitbirdie:
                     # Update existing birdie
                     self.tracked_hitbirdie.update(*centerRS, (x,y,w,h), contour, self.court_z)
@@ -257,12 +257,13 @@ class RealsenseServer:
             length = 50
 
             birdie = self.tracked_hitbirdie
-            x, y, w, h = birdie.bounding_rect
-            bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
-            cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-            # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
-            cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-            cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            if birdie:
+                x, y, w, h = birdie.bounding_rect
+                bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
+                # cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
+                cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
             # TODO Validate result
 
@@ -400,7 +401,7 @@ class RealsenseServer:
             for birdie in birdiesList:
                 x, y, w, h = birdie.bounding_rect
                 bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
-                cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+                # cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
                 cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)

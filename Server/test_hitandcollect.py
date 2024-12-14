@@ -152,14 +152,11 @@ def main():
                 realsense.detect_birdies(visualize = True)
 
                 #print("birdies landed:", realsense.get_num_birdies_landed(), num_birdies_landed)
-                if realsense.get_num_birdies_landed() == 1:
+                if realsense.tracked_hitbirdie is not None and realsense.tracked_hitbirdie.hit_ground:
                     print("HIT_AWAITPLAYER: Birdie detected. Reacting.")
 
                     detectedHitBirdieCount += 1
                     stage = Stage.HIT_REACT
-                elif realsense.get_num_birdies_landed() > 1:
-                    print("HIT_AWAITPLAYER: Multiple birdies detected.")
-                    stage = Stage.END
 
             case Stage.HIT_REACT:
                 # a. Give details on the specific hit
