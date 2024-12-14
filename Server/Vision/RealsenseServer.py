@@ -101,7 +101,7 @@ class RealsenseServer:
             with open(self.court_pos_file_path, "r") as file:
                 loaded_data = json.load(file)
                 court_corners = [corner for corner in loaded_data.values()]
-                self.court = Court(court_corners=court_corners)
+                self.court = Court.set_corners(court_corners=court_corners)
 
     # This function captures a frame
     def capture_frame(self):
@@ -172,7 +172,7 @@ class RealsenseServer:
                 elif id == self.courtArucoId:
                     if not self.court.is_locked:
                         if centerZ == 0:
-                            raise Exception("Depth value for Court Aruco == 0 => Place court more into the inside of the court")
+                            raise Exception("Depth value for Court Aruco == 0 => Place court further towards the center of the boundary")
                         self.court_z = centerZ
 
                         self.court.set_corners(aruco_corners = cornerSet)
