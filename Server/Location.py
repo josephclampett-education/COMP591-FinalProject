@@ -48,8 +48,8 @@ class BirdieLocation(Position, Orientation):
 
 class RobotLocation(Position, Orientation):
     _grabber_length = 30 # TODO
-    center_to_grabber_tip = 110 # TODO
-    grabber_angle = math.radians(30) # TODO
+    center_to_grabber_tip = 180 # TODO
+    grabber_angle = math.radians(40) # TODO
 
     def __init__(self, x, y, z, angle):
         Position.__init__(self, x, y, z)

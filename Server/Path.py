@@ -22,7 +22,7 @@ def check_border(next_birdie, vision_border):
     return next_pos
 
 # Returns the best next collection target and which angle the robot has to turn in radians
-def next_collection_taget(robot_location: Location.RobotLocation, birdie_positions: list, vision_border = (-1000, -1000, 1000, 1000)):
+def next_collection_target(robot_location: Location.RobotLocation, birdie_positions: list, vision_border = (-1000, -1000, 1000, 1000)):
     # birdie could be between wheel and grabber
     # don't run over birdie with wheel
     # avoid pushing birdie away with grabber
@@ -84,17 +84,17 @@ def next_collection_taget(robot_location: Location.RobotLocation, birdie_positio
 
     next_pos = check_border(next_birdie, vision_border)
 
-    return (next_birdie, next_turning_angle)
+    return (next_birdie, next_pos, next_turning_angle)
 
 def make_path(robot_location: Location.RobotLocation, birdie_positions: list, vision_border):
     path = deque()
     current_robot = robot_location
     worklist = birdie_positions.copy()
     while len(worklist) > 0:
-        next_pos, next_angle = next_collection_taget(current_robot, worklist, vision_border)
+        next_birdie, next_pos, next_angle = next_collection_target(current_robot, worklist, vision_border)
         path.append((next_pos, next_angle))
         try:
-            worklist.remove(next_pos)
+            worklist.remove(next_birdie)
         except ValueError:
             # the next position might be going straight, which is not in the list
             pass

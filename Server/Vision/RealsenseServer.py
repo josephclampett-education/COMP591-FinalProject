@@ -365,7 +365,7 @@ class RealsenseServer:
         diff = cv2.absdiff(self.background, gray_frame)
 
         # Threshold to create a binary mask
-        _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
+        _, mask = cv2.threshold(diff, 100, 255, cv2.THRESH_BINARY)
         #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         #print(threshhold)
         # Apply morphological operations to clean the mask
@@ -422,6 +422,7 @@ class RealsenseServer:
         
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', color_image)
+            cv2.imshow('Mask', mask)
             cv2.waitKey(1)
 
         return birdiesList

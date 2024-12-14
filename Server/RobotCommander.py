@@ -40,6 +40,10 @@ class Move:
     def __str__(self):
         return f"MOVE {self.position.x} {self.position.y}"
 
+class ResetGrabberAngle:
+    def __str__(self):
+        return "RESET_GRABBER_ANGLE"
+
 class RobotCommander:
     def __init__(self):
         self.client = BluetoothMailboxClient()
