@@ -43,10 +43,12 @@ class DriveStage(Enum):
     DONE = auto()
 
 class DriveState:
-    def __init__(self, target, robot_location: Location.RobotLocation, stage=DriveStage.START):
+    def __init__(self, target, robot_location: Location.RobotLocation, angle=None, stage=DriveStage.START):
         self.stage = stage
         self.target = target
-        self.angle = robot_location.angle_to(target)
+        if angle is None:
+            angle = robot_location.angle_to(target)
+        self.angle = angle
 
 
 def has_collected(robot_location, birdie_position):
@@ -64,7 +66,7 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
             case DriveStage.START:
                 robot_commander.send_command(RobotCommander.Turn(drive_state.angle))
                 drive_state.stage = DriveStage.WAIT_ANGLE
-                
+
             case DriveStage.WAIT_ANGLE:
                 angle_diff = robot_location.angle_to(drive_state.target)
                 if abs(angle_diff) < math.radians(2):
@@ -78,11 +80,11 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
                     drive_state.stage = DriveStage.DONE
                 else:
                     angle_diff = robot_location.angle_to(drive_state.target)
-                    if same_sign(drive_state.angle, angle_diff) or abs(angle_diff) > math.radians(1):
+                    if check_same_sign(drive_state.angle, angle_diff) or abs(angle_diff) > math.radians(2):
                         drive_state.angle = angle_diff
                         robot_commander.send_command(RobotCommander.Forward(drive_state.angle))
-                    else:
-                        robot_commander.send_command(RobotCommander.Forward())
+                    # else:
+                    #     robot_commander.send_command(RobotCommander.Forward())
 
     return drive_state
 
@@ -128,7 +130,7 @@ def main():
                     stage = Stage.COLLECT_PLAN
 
             case Stage.COLLECT_PLAN:
-                time.sleep(7)
+                time.sleep(5.5)
 
                 # a. Take image
                 print("taking image")
@@ -149,7 +151,7 @@ def main():
                 if drive_state is None or drive_state.stage == DriveStage.DONE:
                     if len(path) > 0:
                         drive_target, turn_direction = path.popleft()
-                        drive_state = DriveState(target=drive_target, robot_location=realsense.robot)
+                        drive_state = DriveState(target=drive_target, robot_location=realsense.robot, angle=turn_direction)
                     else:
                         stage = Stage.COLLECT_EVACUATE
                         drive_state = None
