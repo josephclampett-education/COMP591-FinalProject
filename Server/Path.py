@@ -82,27 +82,30 @@ def next_collection_target(robot_location: Location.RobotLocation, birdie_positi
             )
         next_turning_angle = 0
 
-    next_pos = check_border(next_birdie, vision_border)
+    robot_next_angle = robot_location.angle + next_turning_angle
+    if robot_next_angle > math.pi:
+        robot_next_angle -= 2 * math.pi
+    if robot_next_angle < -math.pi:
+        robot_next_angle += 2 * math.pi
 
-    return (next_birdie, next_pos, next_turning_angle)
+    next_pos = next_birdie.get_other_position(robot_next_angle, -robot_location.center_to_grabber_tip * 0.5)
+    next_pos = check_border(next_pos, vision_border)
+
+    return (next_birdie, next_pos, next_turning_angle, robot_next_angle)
 
 def make_path(robot_location: Location.RobotLocation, birdie_positions: list, vision_border):
     path = deque()
     current_robot = robot_location
     worklist = birdie_positions.copy()
     while len(worklist) > 0:
-        next_birdie, next_pos, next_angle = next_collection_target(current_robot, worklist, vision_border)
+        next_birdie, next_pos, next_angle, robot_next_angle = next_collection_target(current_robot, worklist, vision_border)
         path.append((next_pos, next_angle))
         try:
             worklist.remove(next_birdie)
         except ValueError:
             # the next position might be going straight, which is not in the list
             pass
-        robot_next_angle = current_robot.angle + next_angle
-        if robot_next_angle > math.pi:
-            robot_next_angle -= 2 * math.pi 
-        if robot_next_angle < -math.pi:
-            robot_next_angle += 2 * math.pi 
+
         current_robot = Location.RobotLocation(next_pos.x, next_pos.y, next_pos.z, robot_next_angle)
     return path
 

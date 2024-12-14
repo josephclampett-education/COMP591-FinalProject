@@ -22,7 +22,7 @@ class Position:
 
     def get_pos(self):
         return [float(self.x), float(self.y), float(self.z)]
-    
+
     def is_close(self, other):
         diff = self - other
         return math.sqrt(diff.x**2 + diff.y**2 + diff.z**2) < 20 # TODO: threshold
@@ -30,6 +30,9 @@ class Position:
     def flat_distance(self, other):
         diff = self - other
         return math.sqrt(diff.x**2 + diff.y**2 )
+
+    def get_other_position(self, angle, distance):
+        return Position(self.x + math.cos(angle) * distance, self.y + math.sin(angle) * distance, self.z)
 
 class Orientation:
     # angle in radians
@@ -76,9 +79,9 @@ class RobotLocation(Position, Orientation):
         deltaAngle = bearingAngle - self.angle
 
         if deltaAngle > math.pi:
-            deltaAngle -= 2 * math.pi 
+            deltaAngle -= 2 * math.pi
         if deltaAngle < -math.pi:
-            deltaAngle += 2 * math.pi 
+            deltaAngle += 2 * math.pi
 
         return deltaAngle
 
@@ -92,12 +95,12 @@ class CourtLocation():
 
     def __init__(self, aruco_corners=None, court_corners=None):
         if aruco_corners is not None:
-            self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)    
+            self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)
         elif court_corners is not None:
-            self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = [Position(*corner) for corner in court_corners] 
+            self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = [Position(*corner) for corner in court_corners]
         else:
-            raise Exception("ERROR: Court has to be initialized either with aruco_corners or court_corners!")       
-    
+            raise Exception("ERROR: Court has to be initialized either with aruco_corners or court_corners!")
+
     def calculate_court_corners(self, aruco_corners):
         """
         Calculate the court corners based on the ArUco corners.
