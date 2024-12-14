@@ -93,7 +93,7 @@ class CourtLocation():
 
     SCALE = 40
 
-    def __init__(self, aruco_corners=None, court_corners=None):
+    def set_corners(self, aruco_corners=None, court_corners=None):
         if aruco_corners is not None:
             self.CL, self.CR, self.STL, self.STM, self.STR, self.SBR, self.SBM, self.SBL = self.calculate_court_corners(aruco_corners)
         elif court_corners is not None:

@@ -96,12 +96,13 @@ class RealsenseServer:
             cv2.imwrite(self.BackgroundFilePath, self.background)
 
         ### get the court coordinates from json file
-        if os.path.exists(self.court_pos_file_path) and self.court is None:
+        if os.path.exists(self.court_pos_file_path):
             print("court object loaded from json file")
             with open(self.court_pos_file_path, "r") as file:
                 loaded_data = json.load(file)
+                self.court_z = loaded_data.pop("Z")
                 court_corners = [corner for corner in loaded_data.values()]
-                self.court = Court.set_corners(court_corners=court_corners)
+                self.court.set_corners(court_corners=court_corners)
 
     # This function captures a frame
     def capture_frame(self):
@@ -127,7 +128,7 @@ class RealsenseServer:
             depth_frame, color_image = self.capture_frame()
         # Detect aruco markers
         aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
-        
+
         # Set the current visibility status for both of the arucos
         if aruco_ids is not None and len(aruco_ids) > 0:
             if any(aruco_id[0] == self.courtArucoId for aruco_id in aruco_ids):
@@ -194,9 +195,9 @@ class RealsenseServer:
         # ==== FRAME QUERYING ====
         depth_frame, color_image = self.capture_frame()
 
-        
+
         # ==== MARKER TRACKING ====
-        aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)       
+        aruco_corners, aruco_ids, rejected = self.arucoDetector.detectMarkers(color_image)
 
         # ==== BIRDIE TRACKING ====
         ### information ###
@@ -213,7 +214,7 @@ class RealsenseServer:
         # Threshold to create a binary mask
         _, mask = cv2.threshold(diff, 45, 255, cv2.THRESH_BINARY)
         #threshhold, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        
+
         # Apply morphological operations to clean the mask
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -257,7 +258,7 @@ class RealsenseServer:
 
         # ==== Visualize ==== #
         if visualize:
-           
+
             # Drawing params
             fontScale = 2.3
             fontFace = cv2.FONT_HERSHEY_PLAIN
@@ -272,9 +273,9 @@ class RealsenseServer:
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
                 cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
+
                 # TODO Validate result
-                
+
                 #end_x = int(bx + length * np.cos(np.radians(birdie.angle)))
                 #end_y = int(by+ length * np.sin(np.radians(birdie.angle)))
                 #cv2.line(color_image, (bx, by), (end_x, end_y), (255, 0, 0), 2)
@@ -287,7 +288,7 @@ class RealsenseServer:
         if self.court:
             #court_corners = [self.court.CL, self.court.CR, self.court.STL, self.court.STM, self.court.STR, self.court.SBR, self.court.SBM, self.court.SBL]
             #labels = ['CL', 'CR', 'STL', 'STM', 'STR', 'SBR', 'SBM', 'SBL']
-           
+
             # Define connections for the court and serving box
             court_connections = [(self.court.CL, self.court.CR)]  # Only one line for court boundary
             serve_box_connections = [
@@ -302,16 +303,16 @@ class RealsenseServer:
 
             # Draw court boundary lines
             for corner1, corner2 in court_connections:
-                cv2.line(color_image, 
-                        (int(corner1.x), int(corner1.y)), 
-                        (int(corner2.x), int(corner2.y)), 
+                cv2.line(color_image,
+                        (int(corner1.x), int(corner1.y)),
+                        (int(corner2.x), int(corner2.y)),
                         (255, 0, 0), 2)  # Blue for court boundary
 
             # Draw serving box lines
             for corner1, corner2 in serve_box_connections:
-                cv2.line(color_image, 
-                        (int(corner1.x), int(corner1.y)), 
-                        (int(corner2.x), int(corner2.y)), 
+                cv2.line(color_image,
+                        (int(corner1.x), int(corner1.y)),
+                        (int(corner2.x), int(corner2.y)),
                         (0, 0, 255), 2)  # Red for serving box
 
             # Annotate the corners
@@ -339,7 +340,7 @@ class RealsenseServer:
             images = np.hstack((color_image, depth_colormap))
 
 
-        
+
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', images)
         cv2.imshow("Mask", mask)
@@ -348,12 +349,12 @@ class RealsenseServer:
         # ==== DEBUG END ====
 
         # self.CurrentTime += 1
-    
+
     # This function detects birdies at collection time
     def detect_collection_birdies(self, visualize = False):
         # ==== FRAME QUERYING ====
         depth_frame, color_image = self.capture_frame()
-       
+
         ### --- Birdie Tracking Code --- ###
         ### information ###
         # x is the width value. Center of camera is 0 width right going positiv
@@ -380,7 +381,7 @@ class RealsenseServer:
 
         # Find contours of the birdies
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
+
         birdiesList = []
         for contour in contours:
             if cv2.contourArea(contour) > self.areaThreshold:  # Filter small blobs
@@ -391,13 +392,13 @@ class RealsenseServer:
                 centerZ = depth_frame.get_distance(centerSS[0], centerSS[1])
                 centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
                 centerRS = [centerSS[0], centerSS[1], centerZ]
-                
+
                 newBirdie = Birdie(999, *centerRS, False, (x, y, w, h), contour)
                 birdiesList.append(newBirdie)
 
         # ==== Visualize ==== #
         if visualize:
-           
+
             # Drawing params
             fontScale = 2.3
             fontFace = cv2.FONT_HERSHEY_PLAIN
@@ -412,16 +413,16 @@ class RealsenseServer:
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
                 cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
+
                 # TODO Validate result
-                
+
                 #end_x = int(bx + length * np.cos(np.radians(birdie.angle)))
                 #end_y = int(by+ length * np.sin(np.radians(birdie.angle)))
                 #cv2.line(color_image, (bx, by), (end_x, end_y), (255, 0, 0), 2)
                 #if self.CurrentTime % 20 == 0:
                     #print("Birdie", birdie.id, bx, birdie.x, by, birdie.y)
                     #print(x,y)
-        
+
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', color_image)
             cv2.imshow('Mask', mask)
@@ -440,7 +441,7 @@ class RealsenseServer:
             self.detect_arucos(image=[depth_frame, color_image]) # This updates the court object
             if self.courtArucoHasBeenFound == False:
                 continue
-        
+
             # Define connections for the court and serving box
             court_connections = [(self.court.CL, self.court.CR)]  # Only one line for court boundary
             serve_box_connections = [
@@ -455,16 +456,16 @@ class RealsenseServer:
 
             # Draw court boundary lines
             for corner1, corner2 in court_connections:
-                cv2.line(color_image, 
-                        (int(corner1.x), int(corner1.y)), 
-                        (int(corner2.x), int(corner2.y)), 
+                cv2.line(color_image,
+                        (int(corner1.x), int(corner1.y)),
+                        (int(corner2.x), int(corner2.y)),
                         (255, 0, 0), 2)  # Blue for court boundary
 
             # Draw serving box lines
             for corner1, corner2 in serve_box_connections:
-                cv2.line(color_image, 
-                        (int(corner1.x), int(corner1.y)), 
-                        (int(corner2.x), int(corner2.y)), 
+                cv2.line(color_image,
+                        (int(corner1.x), int(corner1.y)),
+                        (int(corner2.x), int(corner2.y)),
                         (0, 0, 255), 2)  # Red for serving box
 
             # Annotate the corners
@@ -480,7 +481,7 @@ class RealsenseServer:
 
             cv2.namedWindow('CourtOrienting', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('CourtOrienting', color_image)
-            
+
             # Wait till keypress which will initiate saving court position into file
             if cv2.waitKey(1) & 0xFF == ord('r'):
                 self.court.is_locked = True
@@ -488,6 +489,7 @@ class RealsenseServer:
 
         # order must match initialization order in CourtLocation class
         data = {
+            "Z": self.court_z,
             "CL": self.court.CL.get_pos(),
             "CR": self.court.CR.get_pos(),
             "STL": self.court.STL.get_pos(),
@@ -500,7 +502,7 @@ class RealsenseServer:
         print(data)
         with open(self.court_pos_file_path, "w") as file:
             json.dump(data, file)
-        
+
         return
 
 
@@ -517,7 +519,7 @@ class RealsenseServer:
                 closest_birdie = birdie
         return closest_birdie
 
-    
+
     # Find theta angle (angle on y-axis between top left and bottom left corner)
     def aruco_angle(self, corner_top_left, corner_bottom_left):
         delta_x = (corner_bottom_left[0] - corner_top_left[0])
@@ -528,9 +530,9 @@ class RealsenseServer:
 
     def get_num_birdies_landed(self):
         return len([birdie for birdie in self.birdies.values() if birdie.hit_ground])
-    
+
     def is_last_birdie_inside_target_area(self, target_area):
         return self.court.is_inside(list(self.birdies.values())[-1], target_area)
-    
+
     def reset_birdies(self):
         self.birdies = {}

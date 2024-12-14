@@ -5,13 +5,13 @@ class Court(CourtLocation):
     def __init__(self):
         self.is_locked = False
 
-    def set_corners(self, aruco_corners=None, court_corners=None):
-        if aruco_corners is not None:
-            CourtLocation.__init__(self, aruco_corners=aruco_corners)
-        elif court_corners is not None:
-            CourtLocation.__init__(self, court_corners=court_corners)
-        else:
-            raise Exception("ERROR: Court has to be initialized either with aruco_corners!")       
+    # def set_corners(self, aruco_corners=None, court_corners=None):
+    #     if aruco_corners is not None:
+    #         self = CourtLocation.__init__(self, aruco_corners=aruco_corners)
+    #     elif court_corners is not None:
+    #         CourtLocation.__init__(self, court_corners=court_corners)
+    #     else:
+    #         raise Exception("ERROR: Court has to be initialized either with aruco_corners!")
 
     def is_inside(self, birdie: BirdieLocation, side='all'):
         """
@@ -34,7 +34,7 @@ class Court(CourtLocation):
             case _:
                 print("ERROR: Invalid parameter for <side> in function <is_inside>")
                 raise Exception(ValueError)
-        
+
         birdie_2d = [birdie.x, birdie.y]
 
         inside = True
@@ -58,12 +58,12 @@ class Court(CourtLocation):
         """
         Display the court's corner coordinates.
         """
-        # TODO 
+        # TODO
         print("Court Corners:")
         for i, corner in enumerate(self.court_corners):
             print(f"Corner {i + 1}: {corner}")
-    
-    
+
+
     def cross(o, a, b):
         """Helper function to calculate the cross product of vectors OA and OB."""
         return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
@@ -85,5 +85,5 @@ if __name__ == "__main__":
         print("The birdie is inside the court.")
     else:
         print("The birdie is outside the court.")
-    
-    
+
+

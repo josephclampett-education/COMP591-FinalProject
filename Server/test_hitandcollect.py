@@ -96,9 +96,10 @@ def main():
     robot_commander = None
 
     # initialize Stage control enum
-    stage = Stage.COLLECT_EVACUATE
+    stage = Stage.STARTUP_COURT
     drive_state = None
-    BIRDIES_PER_ROUND = 1
+    detectedHitBirdieCount = 0
+    BIRDIES_PER_ROUND = 2
     collectionBirdies = []
     while True:
         # Here perform actions that should be executed all the time
@@ -120,11 +121,11 @@ def main():
             case Stage.STARTUP_REMOVE_COURT_ARUCO:
                 # The court aruco should be gone
                 if realsense.courtArucoVisible == False:
-                    stage = stage.next_stage()
+                    stage = Stage.STARTUP_ROBOT
 
             case Stage.STARTUP_ROBOT:
                 if realsense.robot != None and realsense.robotArucoVisible == True:
-                    
+
                     robot_commander = RobotCommander.RobotCommander()
                     input("Press to continue")
                     print("STARTUP_ROBOT: Confirmed.")
@@ -133,6 +134,7 @@ def main():
                     stage = Stage.STARTGAME
 
             case Stage.STARTGAME:
+                detectedHitBirdieCount = 0
                 stage = Stage.HIT_INSTRUCT
 
             case Stage.HIT_INSTRUCT:
@@ -143,17 +145,17 @@ def main():
 
                 robot_commander.send_command(RobotCommander.Beep())
                 stage = Stage.HIT_AWAITPLAYER
-                
+
             case Stage.HIT_AWAITPLAYER:
                 # a. Player hits a birdie as instructed
                 # b. Camera is live, tracking position of court
-                realsense.detect_birdies(visualize = False)
-                
+                realsense.detect_birdies(visualize = True)
+
                 #print("birdies landed:", realsense.get_num_birdies_landed(), num_birdies_landed)
                 if realsense.get_num_birdies_landed() == 1:
                     print("HIT_AWAITPLAYER: Birdie detected. Reacting.")
 
-                    num_birdies_landed += 1
+                    detectedHitBirdieCount += 1
                     stage = Stage.HIT_REACT
                 elif realsense.get_num_birdies_landed() > 1:
                     print("HIT_AWAITPLAYER: Multiple birdies detected.")
@@ -162,9 +164,9 @@ def main():
             case Stage.HIT_REACT:
                 # a. Give details on the specific hit
                 # TODO
-                
+
                 # b. Return to HIT_INSTRUCT
-                if num_birdies_landed == BIRDIES_PER_ROUND:
+                if detectedHitBirdieCount == BIRDIES_PER_ROUND:
                     stage = Stage.ROUND_END
                 else:
                     stage = Stage.HIT_INSTRUCT
@@ -192,7 +194,7 @@ def main():
                     path = Path.make_path(realsense.robot, collectionBirdies, visionBorder)
                     stage = Stage.COLLECT_ACT
                 else:
-                    stage = Stage.END
+                    stage = Stage.STARTGAME
 
                 # b. Make fixed path all the way from first to last one detected
                 # c. Return robot to court
