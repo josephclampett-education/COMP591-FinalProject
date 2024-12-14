@@ -59,6 +59,9 @@ while True:
         # print('RIGHT')
         close_grabber()
         robot.drive(0, 20)
+    elif command == "BEEP":
+        # print('END')
+        ev3.speaker.beep()
     elif command == "END":
         # print('END')
         ev3.speaker.beep()

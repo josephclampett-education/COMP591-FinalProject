@@ -44,6 +44,10 @@ class ResetGrabberAngle:
     def __str__(self):
         return "RESET_GRABBER_ANGLE"
 
+class Beep:
+    def __str__(self):
+        return "BEEP"
+
 class RobotCommander:
     def __init__(self):
         self.client = BluetoothMailboxClient()
