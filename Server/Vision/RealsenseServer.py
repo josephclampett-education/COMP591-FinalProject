@@ -22,7 +22,7 @@ This class exposes the information of the objects.
 """
 class RealsenseServer:
 
-    def __init__(self, robotArucoId, courtArucoId, areaThreshold = 500):
+    def __init__(self, robotArucoId, courtArucoId, minAreaThreshold = 500, maxAreaThreshold = 8000):
         # ================
         # Data
         # ================
@@ -33,7 +33,8 @@ class RealsenseServer:
         # self.CurrentTime = 0
         self.robotArucoId = robotArucoId
         self.courtArucoId = courtArucoId
-        self.areaThreshold = areaThreshold
+        self.minAreaThreshold = minAreaThreshold
+        self.maxAreaThreshold = maxAreaThreshold
         self.robotArucoVisible = None
         self.courtArucoVisible = None
         self.courtArucoHasBeenFound = False
@@ -228,7 +229,8 @@ class RealsenseServer:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         new_birdies = {}
         for contour in contours:
-            if cv2.contourArea(contour) > self.areaThreshold:  # Filter small blobs
+            contourArea = cv2.contourArea(contour)
+            if contourArea > self.minAreaThreshold and contourArea < self.maxAreaThreshold:  # Filter small blobs
 
                 x, y, w, h = cv2.boundingRect(contour)
                 centerSS = (int(x + w/2), int(y + h/2))
@@ -384,8 +386,9 @@ class RealsenseServer:
 
         birdiesList = []
         for contour in contours:
-            if cv2.contourArea(contour) > self.areaThreshold:  # Filter small blobs
-                print(f"Birdie, CA: {cv2.contourArea(contour)}")
+            contourArea = cv2.contourArea(contour)
+            if contourArea > self.minAreaThreshold and contourArea < self.maxAreaThreshold:  # Filter small blobs
+                print(f"Birdie, CA: {contourArea}")
 
                 x, y, w, h = cv2.boundingRect(contour)
                 centerSS = (int(x + w/2), int(y + h/2))

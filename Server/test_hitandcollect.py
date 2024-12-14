@@ -91,7 +91,7 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
     return drive_state
 
 def main():
-    realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181, areaThreshold=700)
+    realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181, minAreaThreshold=700, maxAreaThreshold=8000)
 
     robot_commander = None
 
