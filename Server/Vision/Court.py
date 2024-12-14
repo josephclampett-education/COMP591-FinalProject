@@ -1,5 +1,11 @@
 import numpy as np
 from Server.Location import CourtLocation, BirdieLocation
+from enum import Enum, auto
+
+class Area(Enum):
+    ALL = auto()
+    LEFT_SERVICE = auto()
+    RIGHT_SERVICE = auto()
 
 class Court(CourtLocation):
     def __init__(self):
@@ -13,7 +19,7 @@ class Court(CourtLocation):
     #     else:
     #         raise Exception("ERROR: Court has to be initialized either with aruco_corners!")
 
-    def is_inside(self, birdie: BirdieLocation, side='all'):
+    def is_inside(self, birdie: BirdieLocation, side: Area):
         """
         Check if a birdie is inside the court.
 
@@ -25,15 +31,15 @@ class Court(CourtLocation):
         bool: True if the birdie is inside the court, False otherwise.
         """
         match side:
-            case 'all':
-                court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STR, self.CR, self.CL)]
-            case 'left_serve':
-                court_2d = [(x, y) for x, y, _ in zip(self.STL, self.STM, self.SBM, self.SBL)]
-            case 'right_serve':
-                court_2d = [(x, y) for x, y, _ in zip(self.SBM, self.STR, self.SBR, self.SBM)]
+            case Area.ALL:
+                court_2d = [(corner.x, corner.y) for corner in [self.STL, self.STR, self.CR, self.CL]]
+            case Area.LEFT_SERVICE:
+                court_2d = [(corner.x, corner.y) for corner in [self.STL, self.STM, self.SBM, self.SBL]]
+            case Area.RIGHT_SERVICE:
+                court_2d = [(corner.x, corner.y) for corner in [self.SBM, self.STR, self.SBR, self.SBM]]
             case _:
                 print("ERROR: Invalid parameter for <side> in function <is_inside>")
-                raise Exception(ValueError)
+                return False
 
         birdie_2d = [birdie.x, birdie.y]
 
@@ -41,7 +47,7 @@ class Court(CourtLocation):
         for i in range(len(court_2d)):
             o = court_2d[i]
             a = court_2d[(i + 1) % len(court_2d)]
-            if self.cross(o, a, birdie_2d) < 0:
+            if Court.cross(o, a, birdie_2d) < 0:
                 inside = False
                 break
 

@@ -1,5 +1,5 @@
 import cv2
-from Server.Location import BirdieLocation
+from Server.Location import BirdieLocation, Position
 
 class Birdie(BirdieLocation):
     def __init__(self, x, y, z, hit_ground, bounding_rect, contour):
@@ -9,23 +9,31 @@ class Birdie(BirdieLocation):
         self.history = [(x, y, z)]  # Initialize with the current position
         self.trajectory = None # Can be 'left2left', 'left2right', 'right2right', 'right2left'
 
-    def update(self, x, y, z, bounding_rect, contour, court_z):
-        if self.hit_ground:
-            # Do not update the position if the birdie has hit the ground
-            return
+        self.impact_position = None
+        self.is_static = False
 
+    def update(self, x, y, z, bounding_rect, contour, court_z):
+        if not self.is_static:
+            last_x, last_y, last_z = self.history[-1]
+            self.is_static = ((x - last_x)**2 + (y - last_y)**2) ** 0.5 < 2 and (z - last_z) < 0.01
+
+        self.history.append((x, y, z))  # Append the new position to history
         self.x = x
         self.y = y
         self.z = z
         self.bounding_rect = bounding_rect
         self.contour = contour
         self.angle = self.calculate_orientation()
-        self.history.append((x, y, z))  # Append the new position to history
+
+        if self.hit_ground:
+            # Do not update the position if the birdie has hit the ground
+            return
 
         # TODO implement check that sets hit_ground to true if z = floor
         if self.z >= court_z*0.9 : # Take the z value from aruco marker court
             print("Birdie hit ground.")
             self.hit_ground = True
+            self.impact_position = Position(x, y, z)
 
     def calculate_orientation(self):
         # Calculate the orientation using the contour

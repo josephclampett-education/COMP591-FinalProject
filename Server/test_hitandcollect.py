@@ -18,6 +18,7 @@ from enum import Enum, auto
 import Server.RobotCommander as RobotCommander
 import Server.Path as Path
 from Server.Lesson import make_lesson
+import Server.Vision.Court as Court
 
 
 class Stage(Enum):
@@ -99,7 +100,7 @@ def main():
     stage = Stage.STARTUP_COURT
     drive_state = None
     detectedHitBirdieCount = 0
-    BIRDIES_PER_ROUND = 2
+    BIRDIES_PER_ROUND = 30
     collectionBirdies = []
     while True:
         # Here perform actions that should be executed all the time
@@ -152,7 +153,7 @@ def main():
                 realsense.detect_birdies(visualize = True)
 
                 #print("birdies landed:", realsense.get_num_birdies_landed(), num_birdies_landed)
-                if realsense.tracked_hitbirdie is not None and realsense.tracked_hitbirdie.hit_ground:
+                if realsense.tracked_hitbirdie is not None and realsense.tracked_hitbirdie.is_static:
                     print("HIT_AWAITPLAYER: Birdie detected. Reacting.")
 
                     detectedHitBirdieCount += 1
@@ -160,9 +161,9 @@ def main():
 
             case Stage.HIT_REACT:
                 birdie = realsense.tracked_hitbirdie
-                isInside = realsense.court.is_inside(birdie, 'left_side')
-                
-                print(f"HIT_REACT: Birdie(D: {birdie.flat_distance(realsense.robot)}, IN: {isInside})")
+                isInside = realsense.court.is_inside(birdie, Court.Area.LEFT_SERVICE)
+
+                print(f"HIT_REACT: Birdie(D: {birdie.impact_position.flat_distance(realsense.robot)}, IN: {isInside})")
 
                 # b. Return to HIT_INSTRUCT
                 if detectedHitBirdieCount == BIRDIES_PER_ROUND:
