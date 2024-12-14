@@ -114,7 +114,7 @@ def main():
         # Here perform actions that should be executed depending on the stage
         match stage:
             case Stage.STARTUP_COURT:
-                print("Orient court ArUco to match the perfect position:")
+                print("STARTUP_COURT: Orient court ArUco.")
                 realsense.save_court_position() # this function requires a 'r' keypress to exit
                 stage = Stage.STARTUP_REMOVE_COURT_ARUCO
 
@@ -127,7 +127,7 @@ def main():
                 if realsense.robot != None and realsense.robotArucoVisible == True:
 
                     robot_commander = RobotCommander.RobotCommander()
-                    input("Press to continue")
+                    input("STARTUP_ROBOT: Press to continue.")
                     print("STARTUP_ROBOT: Confirmed.")
                     robot_commander.send_command(RobotCommander.ResetGrabberAngle())
 
@@ -159,8 +159,10 @@ def main():
                     stage = Stage.HIT_REACT
 
             case Stage.HIT_REACT:
-                # a. Give details on the specific hit
-                # TODO
+                birdie = realsense.tracked_hitbirdie
+                isInside = realsense.court.is_inside(birdie, 'left_side')
+                
+                print(f"HIT_REACT: Birdie(D: {birdie.flat_distance(realsense.robot)}, IN: {isInside})")
 
                 # b. Return to HIT_INSTRUCT
                 if detectedHitBirdieCount == BIRDIES_PER_ROUND:

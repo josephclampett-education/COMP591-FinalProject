@@ -508,8 +508,5 @@ class RealsenseServer:
 
         return theta
 
-    def is_last_birdie_inside_target_area(self, target_area):
-        return self.court.is_inside(self.tracked_hitbirdie, target_area)
-
     def prepare_birdie_tracking(self):
         self.tracked_hitbirdie = None
