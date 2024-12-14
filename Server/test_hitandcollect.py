@@ -21,16 +21,23 @@ from Server.Lesson import make_lesson
 
 
 class Stage(Enum):
-    STARTUP = auto() #1
-    STARTGAME = auto() #2
-    HIT_INSTRUCT = auto() #3
-    HIT_AWAITPLAYER = auto() #4
-    HIT_REACT = auto() #5
-    ROUND_END = auto() #6
-    COLLECT_EVACUATE = auto() #7
-    COLLECT_PLAN = auto() #8
-    COLLECT_ACT = auto() #9
-    END = auto() #9
+    STARTUP_COURT = auto()
+    STARTUP_REMOVE_COURT_ARUCO = auto()
+    STARTUP_ROBOT = auto()
+
+    STARTGAME = auto()
+
+    HIT_INSTRUCT = auto()
+    HIT_AWAITPLAYER = auto()
+    HIT_REACT = auto()
+
+    ROUND_END = auto()
+
+    COLLECT_EVACUATE = auto()
+    COLLECT_PLAN = auto()
+    COLLECT_ACT = auto()
+
+    END = auto()
 
 class DriveStage(Enum):
     START = auto()
@@ -84,13 +91,9 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
     return drive_state
 
 def main():
-    robot_commander = RobotCommander.RobotCommander()
-
     realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181, areaThreshold=700)
 
-    input("Press to continue")
-    print("c")
-    robot_commander.send_command(RobotCommander.ResetGrabberAngle())
+    robot_commander = None
 
     # initialize Stage control enum
     stage = Stage.COLLECT_EVACUATE
@@ -109,6 +112,26 @@ def main():
 
         # Here perform actions that should be executed depending on the stage
         match stage:
+            case Stage.STARTUP_COURT:
+                print("Orient court ArUco to match the perfect position:")
+                realsense.save_court_position() # this function requires a 'r' keypress to exit
+                stage = Stage.STARTUP_REMOVE_COURT_ARUCO
+
+            case Stage.STARTUP_REMOVE_COURT_ARUCO:
+                # The court aruco should be gone
+                if realsense.courtArucoVisible == False:
+                    stage = stage.next_stage()
+
+            case Stage.STARTUP_ROBOT:
+                if realsense.robot != None and realsense.robotArucoVisible == True:
+                    
+                    robot_commander = RobotCommander.RobotCommander()
+                    input("Press to continue")
+                    print("STARTUP_ROBOT: Confirmed.")
+                    robot_commander.send_command(RobotCommander.ResetGrabberAngle())
+
+                    stage = Stage.STARTGAME
+
             case Stage.STARTGAME:
                 stage = Stage.HIT_INSTRUCT
 
