@@ -39,8 +39,7 @@ class RealsenseServer:
         self.courtArucoVisible = None
         self.courtArucoHasBeenFound = False
         self.robot: RobotLocation = None
-        self.birdies: Dict[Birdie] = {}
-        self.next_birdie_id = 0
+        self.tracked_hitbirdie = None
         self.court: Court = Court()
 
         # Config
@@ -227,7 +226,6 @@ class RealsenseServer:
 
         # Find contours of the birdies
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        new_birdies = {}
         for contour in contours:
             contourArea = cv2.contourArea(contour)
             if contourArea > self.minAreaThreshold and contourArea < self.maxAreaThreshold:  # Filter small blobs
@@ -238,24 +236,14 @@ class RealsenseServer:
                 centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
                 # TODO CHECK
                 centerRS = [centerSS[0], centerSS[1], centerZ]
-
-                # Finded the closest existing Birdie to the current birdie position
-                closest_birdie = self.find_closest_birdie(centerRS)
-                if closest_birdie:
+                
+                if self.tracked_hitbirdie:
                     # Update existing birdie
-                    closest_birdie.update(*centerRS, (x,y,w,h), contour, self.court_z, len(self.birdies))
-                    new_birdies[closest_birdie.id] = closest_birdie
+                    self.tracked_hitbirdie.update(*centerRS, (x,y,w,h), contour, self.court_z)
                 else:
                     print("Create a new Birdie")
                     # Create new birdie
-                    birdie_id = self.next_birdie_id
-                    new_birdie = Birdie(birdie_id, *centerRS, False, (x, y, w, h), contour)
-                    new_birdies[birdie_id] = new_birdie
-                    self.next_birdie_id += 1
-
-
-                # Save birdie information in data struct
-                self.birdies = new_birdies
+                    self.tracked_hitbirdie = Birdie(*centerRS, False, (x, y, w, h), contour)
 
 
         # ==== Visualize ==== #
@@ -268,22 +256,22 @@ class RealsenseServer:
             fontThickness = 2
             length = 50
 
-            for birdie in self.birdies.values():
-                x, y, w, h = birdie.bounding_rect
-                bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
-                cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-                # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
-                cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
-                cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            birdie = self.tracked_hitbirdie
+            x, y, w, h = birdie.bounding_rect
+            bx, by, bz = int(birdie.x), int(birdie.y), int(birdie.z)
+            cv2.putText(color_image, f"ID: {birdie.id}",(x, y - 10), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+            # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
+            cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
+            cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-                # TODO Validate result
+            # TODO Validate result
 
-                #end_x = int(bx + length * np.cos(np.radians(birdie.angle)))
-                #end_y = int(by+ length * np.sin(np.radians(birdie.angle)))
-                #cv2.line(color_image, (bx, by), (end_x, end_y), (255, 0, 0), 2)
-                #if self.CurrentTime % 20 == 0:
-                    #print("Birdie", birdie.id, bx, birdie.x, by, birdie.y)
-                    #print(x,y)
+            #end_x = int(bx + length * np.cos(np.radians(birdie.angle)))
+            #end_y = int(by+ length * np.sin(np.radians(birdie.angle)))
+            #cv2.line(color_image, (bx, by), (end_x, end_y), (255, 0, 0), 2)
+            #if self.CurrentTime % 20 == 0:
+                #print("Birdie", birdie.id, bx, birdie.x, by, birdie.y)
+                #print(x,y)
 
 
         ### BADMINTON COURT VISUALIZATION
@@ -433,7 +421,6 @@ class RealsenseServer:
 
         return birdiesList
 
-
     def save_court_position(self):
         print("save_court_position_called")
         if os.path.exists(self.court_pos_file_path):
@@ -512,17 +499,6 @@ class RealsenseServer:
 
 
     # --- Helper Methods --- #
-    def find_closest_birdie(self, centerRS, threshold=0.1):
-        closest_birdie = None
-        min_distance = float('inf')
-        for birdie in self.birdies.values():
-            distance = np.linalg.norm(np.array([birdie.x, birdie.y, birdie.z]) - np.array(centerRS))
-            if distance < min_distance and distance < threshold:
-                min_distance = distance
-                closest_birdie = birdie
-        return closest_birdie
-
-
     # Find theta angle (angle on y-axis between top left and bottom left corner)
     def aruco_angle(self, corner_top_left, corner_bottom_left):
         delta_x = (corner_bottom_left[0] - corner_top_left[0])
@@ -531,11 +507,8 @@ class RealsenseServer:
 
         return theta
 
-    def get_num_birdies_landed(self):
-        return len([birdie for birdie in self.birdies.values() if birdie.hit_ground])
-
     def is_last_birdie_inside_target_area(self, target_area):
-        return self.court.is_inside(list(self.birdies.values())[-1], target_area)
+        return self.court.is_inside(self.tracked_hitbirdie, target_area)
 
-    def reset_birdies(self):
-        self.birdies = {}
+    def prepare_birdie_tracking(self):
+        self.tracked_hitbirdie = None

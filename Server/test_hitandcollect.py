@@ -140,7 +140,7 @@ def main():
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie
                 # TODO: time.sleep(1)
-                realsense.reset_birdies()
+                realsense.prepare_birdie_tracking()
                 realsense.capture_hit_background() # This is the background with the static robot inside of it
 
                 robot_commander.send_command(RobotCommander.Beep())
