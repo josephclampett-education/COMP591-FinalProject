@@ -64,7 +64,9 @@ while True:
         ev3.speaker.beep()
     elif command == "END":
         # print('END')
-        ev3.speaker.beep()
+        ev3.speaker.beep(frequency=600)
+        ev3.speaker.beep(frequency=700)
+        ev3.speaker.beep(frequency=800)
         open_grabber()
         break
     elif command.startswith("FORWARD"):
@@ -81,6 +83,9 @@ while True:
         robot.straight(turns)
     elif command.startswith("RESET_GRABBER_ANGLE"):
         grab_motor.reset_angle(0)
+    elif command == "FAIL":
+        ev3.speaker.beep(frequency=600)
+        ev3.speaker.beep(frequency=400)
 
     # print('PreSend')
     # commandBox.send('received' + command)
