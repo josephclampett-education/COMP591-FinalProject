@@ -1,11 +1,11 @@
 from openai import OpenAI
-import openai
 from dotenv import dotenv_values
 import speech_recognition as sr
 import time
 import asyncio
 from queue import Queue
 from threading import Event, Thread
+from enum import Enum, auto
 
 import RobotCommander
 
@@ -16,8 +16,15 @@ client_input = None
 
 score = 0
 
+class EventType(Enum):
+    GET_SCORE = auto()
+    INSTRUCT_LEFT_SERVICE_BOUNDS = auto()
+    INSTRUCT_RIGHT_SERVICE_BOUNDS = auto()
+    INSTRUCT_FULL_COURT_BOUNDS = auto()
+    END = auto()
+
 #(Text to Speech)
-def generate_tts(text):
+def multimodal_out(text):
     try:
         # Correct parameter names as per API documentation
         response = client.audio.speech.create(
@@ -26,14 +33,14 @@ def generate_tts(text):
             input=text,
         )
 
+        print(f"TTS: {text}")
+
         # Save the audio file
         with open("output.mp3", "wb") as output_file:
             for chunk in response.iter_bytes():
                 output_file.write(chunk)
     except Exception as e:
         print(f"Error generating TTS: {e}")
-#Testing
-generate_tts("move forward")
 
 
 #Automatic Response from OpenAi
@@ -112,8 +119,7 @@ def process_user_input(user_input):
         "right": "GPTCODE_TURN_RIGHT",
         "grab": "GPTCODE_GRAB"
     }
-
-    # 创建用于意图解析的 Prompt
+    
     prompt = f"""
     The user will send requests to control a robot. Please respond only with one of the following commands: "{', '.join(UNIQUE_KEYWORDS.values())}"
     - To continue the game, return: "{UNIQUE_KEYWORDS['continue']}".
@@ -146,62 +152,48 @@ def process_user_input(user_input):
 
 # Speech recognition and command handling
 def listen_and_respond(point_queue, event_queue, robot_commander):
-    print("""Hello, I am your badminton practice partner, and you can call me PiPi.
-                 We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton,
-                 and the second round is to practice badminton hitting techniques.
-                 Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.""")
-    generate_tts("""Hello, I am your badminton practice partner, and you can call me PiPi.
-                 We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton,
-                 and the second round is to practice badminton hitting techniques.
-                 First thing first, let me introduce you the basic rules in singles badminton.""")
+    # Intro text
+    multimodal_out("""Hello, I am your badminton practice partner.
+                      We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton and the second round is to practice badminton hitting techniques.
+                      Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.""")
+
     time.sleep(2)
-    generate_tts("""1. Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court
-                 when your score is even; If your score is odd, you start from the left service court.
-                 2. Hitting rules: For singles, the boundaires are narrower than doubles: the inner side lines and the back boundary
-                 line are used.""")
+
+    # Explain court text
+    multimodal_out("""1. Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court when your score is even; If your score is odd, you start from the left service court.
+                        2. Hitting rules: For singles, the boundaires are narrower than doubles: the inner side lines and the back boundary line are used.""")
+    
+    # event_queue.put((Event(), EventType.INSTRUCT_COURT_BOUNDS))
+
     time.sleep(2)
-    generate_tts("Now, please stand in the position opposite me, let me show you the badminton court")
+    
+    multimodal_out("Now, please stand in the position opposite me, let me show you the badminton court")
 
     while True:
         client_input = listen()
         # await asyncio.sleep(1)
         if client_input:
             client_input = client_input = client_input.strip().lower()
-            print(client_input)
+            print(f"USERINPUT: {client_input}")
 
         intent = process_user_input(client_input)
         
         # Act based on the intent
         match intent:
             case "GPTCODE_CONTINUE": # match "continue"
-                generate_tts("The game continues!")
-                print("The game continues!")
+                multimodal_out("The game continues!")
             case "GPTCODE_END":  # match "end"
                 robot_commander.send_command("END")
-                generate_tts("The game has ended! Thank you for playing!")
-                print("The game has ended! Thank you for playing!")
+                multimodal_out("The game has ended! Thank you for playing!")
                 break
             case "GPTCODE_SCORE":  # match "score"
                 event = Event()
-                event_queue.put(event)
+                event_queue.put((event, "SCORE"))
                 event.wait()
                 score = point_queue.get()
-                generate_tts(f"Your current score is {score} points.")
-                print(f"Your current score is {score} points.")
-            case "GPTCODE_TURN_LEFT":
-                robot_commander.send_command("LEFT")
-                generate_tts("Turning left")
-                print("Turning left")
-            case "GPTCODE_TURN_RIGHT":
-                robot_commander.send_command("RIGHT")
-                generate_tts("Turning right")
-                print("Turning right")
-            case "GPTCODE_GRAB":
-                robot_commander.send_command("GRAB")
-                generate_tts("Using grabber")
-                print("Using grabber")
-            case _:  # match "unsure"
-                generate_tts("I couldn't understand your intent. Please try again.")
+                multimodal_out(f"Your current score is {score} points.")
+            case _:
+                multimodal_out("I couldn't understand your intent. Please try again.")
                 print("I couldn't understand your intent. Please try again.")
 
         # if "stop" in client_input:

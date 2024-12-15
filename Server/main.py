@@ -8,7 +8,7 @@ sys.path.append(project_root)
 import time
 from collections import deque
 import Server.Vision.RealsenseServer as RealsenseServer
-import Server.textToSpeech as textToSpeech
+import Server.Chatbot as Chatbot
 import Server.Location as Location
 import Server.Regiment as Regiment
 import math

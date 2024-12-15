@@ -33,6 +33,10 @@ class Stop:
     def __str__(self):
         return "STOP"
 
+class End:
+    def __str__(self):
+        return "END"
+
 class Move:
     def __init__(self, position: Position):
         self.position = position
