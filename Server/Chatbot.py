@@ -152,7 +152,7 @@ def process_user_input(user_input):
     return intent
 
 # Speech recognition and command handling
-def listen_and_respond(point_queue, event_queue, robot_commander):
+def listen_and_respond(point_queue, event_queue):
     # Intro text
     multimodal_out("""Hello, I am your badminton practice partner.
                       We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton and the second round is to practice badminton hitting techniques.
@@ -185,7 +185,7 @@ def listen_and_respond(point_queue, event_queue, robot_commander):
     multimodal_out("You can hit the ball when you hear a beep.")
     event_queue.put((serialExplainEvent, EventType.HIT_START))
     serialExplainEvent.wait()
-    
+
     while True:
         client_input = listen()
         # await asyncio.sleep(1)
@@ -200,8 +200,8 @@ def listen_and_respond(point_queue, event_queue, robot_commander):
             case "GPTCODE_CONTINUE": # match "continue"
                 multimodal_out("The game continues!")
             case "GPTCODE_END":  # match "end"
-                robot_commander.send_command("END")
                 multimodal_out("The game has ended! Thank you for playing!")
+                event_queue.put((Event(), EventType.END))
                 break
             case "GPTCODE_SCORE":  # match "score"
                 event = Event()

@@ -128,7 +128,13 @@ def main():
             case Stage.STARTUP_REMOVE_COURT_ARUCO:
                 # The court aruco should be gone
                 if realsense.courtArucoVisible == False:
-                    stage = Stage.STARTUP_ROBOT
+                    stage = Stage.STARTUP_CHATBOT
+
+            case Stage.STARTUP_CHATBOT:
+                chatbotThread = Thread(target = Chatbot.listen_and_respond, args = (point_queue, event_queue))
+                chatbotThread.start()
+
+                stage = Stage.STARTUP_ROBOT
 
             case Stage.STARTUP_ROBOT:
                 if realsense.robot != None and realsense.robotArucoVisible == True:
@@ -137,13 +143,7 @@ def main():
                     print("STARTUP_ROBOT: Resetting grabber angle.")
                     robot_commander.send_command(RobotCommander.ResetGrabberAngle())
 
-                    stage = Stage.STARTUP_CHATBOT
-
-            case Stage.STARTUP_CHATBOT:
-                chatbotThread = Thread(target = Chatbot.listen_and_respond, args = (point_queue, event_queue, robot_commander))
-                chatbotThread.start()
-
-                stage = Stage.STARTGAME
+                    stage = Stage.STARTGAME
 
             case Stage.STARTGAME:
                 detectedHitBirdieCount = 0
