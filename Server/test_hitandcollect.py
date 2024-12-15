@@ -31,6 +31,7 @@ class Stage(Enum):
     HIT_INSTRUCT = auto()
     HIT_AWAITPLAYER = auto()
     HIT_REACT = auto()
+    HIT_AWAITSTATIC = auto()
 
     ROUND_END = auto()
 
@@ -86,8 +87,6 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
                     if check_same_sign(drive_state.angle, angle_diff) or abs(angle_diff) > math.radians(2):
                         drive_state.angle = angle_diff
                         robot_commander.send_command(RobotCommander.Forward(drive_state.angle))
-                    # else:
-                    #     robot_commander.send_command(RobotCommander.Forward())
 
     return drive_state
 
@@ -140,7 +139,6 @@ def main():
 
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie
-                # TODO: time.sleep(1)
                 realsense.prepare_birdie_tracking()
                 realsense.capture_hit_background() # This is the background with the static robot inside of it
 
@@ -153,7 +151,7 @@ def main():
                 realsense.detect_birdies(visualize = True)
 
                 #print("birdies landed:", realsense.get_num_birdies_landed(), num_birdies_landed)
-                if realsense.tracked_hitbirdie is not None and realsense.tracked_hitbirdie.is_static:
+                if realsense.tracked_hitbirdie is not None and realsense.tracked_hitbirdie.hit_ground:
                     print("HIT_AWAITPLAYER: Birdie detected. Reacting.")
 
                     detectedHitBirdieCount += 1
@@ -165,11 +163,16 @@ def main():
 
                 print(f"HIT_REACT: Birdie(D: {birdie.impact_position.flat_distance(realsense.robot)}, IN: {isInside})")
 
+                stage = Stage.HIT_AWAITSTATIC
+
+            case Stage.HIT_AWAITSTATIC:
+                realsense.detect_birdies(visualize = True)
                 # b. Return to HIT_INSTRUCT
-                if detectedHitBirdieCount == BIRDIES_PER_ROUND:
-                    stage = Stage.ROUND_END
-                else:
-                    stage = Stage.HIT_INSTRUCT
+                if realsense.contours_are_static():
+                    if detectedHitBirdieCount == BIRDIES_PER_ROUND:
+                        stage = Stage.ROUND_END
+                    else:
+                        stage = Stage.HIT_INSTRUCT
 
             case Stage.ROUND_END:
                 stage = Stage.COLLECT_EVACUATE
