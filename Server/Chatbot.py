@@ -2,16 +2,13 @@ from openai import OpenAI
 from dotenv import dotenv_values
 import speech_recognition as sr
 import time
-import asyncio
+import io
+import pygame as pygame
 from queue import Queue
 from threading import Event, Thread
 from enum import Enum, auto
 
-import RobotCommander
-
-# Initialize OpenAI client
-OpenAI.api_key = dotenv_values('.env')["API_KEY"]
-client = OpenAI(api_key=OpenAI.api_key)
+client = None
 client_input = None
 
 score = 0
@@ -27,6 +24,8 @@ class EventType(Enum):
 #(Text to Speech)
 def multimodal_out(text):
     try:
+        print(f"TTS: {text}")
+
         # Correct parameter names as per API documentation
         response = client.audio.speech.create(
             model="tts-1",
@@ -34,15 +33,30 @@ def multimodal_out(text):
             input=text,
         )
 
-        print(f"TTS: {text}")
+        # Create an in-memory audio stream
+        audio_data = io.BytesIO()
 
-        # Save the audio file
-        with open("output.mp3", "wb") as output_file:
-            for chunk in response.iter_bytes():
-                output_file.write(chunk)
+        # Write the audio response to the in-memory stream
+        for chunk in response.iter_bytes():
+            audio_data.write(chunk)
+        
+        # Rewind the stream to the beginning
+        audio_data.seek(0)
+
+        # Initialize pygame mixer
+        pygame.mixer.init()
+
+        # Load the audio stream directly into pygame mixer
+        pygame.mixer.music.load(audio_data, 'mp3')
+
+        # Play the audio
+        pygame.mixer.music.play()
+
+        # Wait until the audio finishes playing
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
     except Exception as e:
         print(f"Error generating TTS: {e}")
-
 
 #Automatic Response from OpenAi
 """
@@ -94,7 +108,7 @@ def listen():
         with sr.Microphone() as source:
             print("Say something!")
             try:
-                audio = recognizer.listen(source,timeout=10, phrase_time_limit=10)
+                audio = recognizer.listen(source, timeout = 10, phrase_time_limit = 10)
                 client_input = recognizer.recognize_whisper_api(audio, api_key=OpenAI.api_key)
                 print(f"Recognized command: {client_input}")
                 return client_input
@@ -151,40 +165,41 @@ def process_user_input(user_input):
     intent = responseContent.strip()
     return intent
 
+DEBUG = True
+
 # Speech recognition and command handling
 def listen_and_respond(point_queue, event_queue):
-    # Intro text
-    multimodal_out("""Hello, I am your badminton practice partner.
-                      We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton and the second round is to practice badminton hitting techniques.
-                      Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.""")
+    OpenAI.api_key = dotenv_values('.env')["API_KEY"]
+    client = OpenAI(api_key=OpenAI.api_key)
 
-    time.sleep(2)
+    if not DEBUG:
+        # Intro text
+        multimodal_out("""Hello, I am your badminton practice partner. We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton and the second round is to practice badminton hitting techniques. Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.""")
 
-    # Explain court text
-    multimodal_out("""1. Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court when your score is even; If your score is odd, you start from the left service court.
-                        2. Hitting rules: For singles, the boundaries are narrower than doubles: the inner side lines and the back boundary line are used.""")
+        # Explain court text
+        multimodal_out("""1, Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court when your score is even; If your score is odd, you start from the left service court. 2, Hitting rules: For singles, the boundaries are narrower than doubles: the inner side lines and the back boundary line are used.""")
 
-    serialExplainEvent = Event()
+        serialExplainEvent = Event()
 
-    serialExplainEvent.clear()
-    multimodal_out("Left court")
-    event_queue.put((serialExplainEvent, EventType.INSTRUCT_LEFT_SERVICE_BOUNDS))
-    serialExplainEvent.wait()
+        serialExplainEvent.clear()
+        multimodal_out("Left court")
+        event_queue.put((serialExplainEvent, EventType.INSTRUCT_LEFT_SERVICE_BOUNDS))
+        serialExplainEvent.wait()
 
-    serialExplainEvent.clear()
-    multimodal_out("Right court court")
-    event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
-    serialExplainEvent.wait()
+        serialExplainEvent.clear()
+        multimodal_out("Right court court")
+        event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
+        serialExplainEvent.wait()
 
-    serialExplainEvent.clear()
-    multimodal_out("Full court")
-    event_queue.put((serialExplainEvent, EventType.INSTRUCT_FULL_COURT_BOUNDS))
-    serialExplainEvent.wait()
+        serialExplainEvent.clear()
+        multimodal_out("Full court")
+        event_queue.put((serialExplainEvent, EventType.INSTRUCT_FULL_COURT_BOUNDS))
+        serialExplainEvent.wait()
 
-    serialExplainEvent.clear()
-    multimodal_out("You can hit the ball when you hear a beep.")
-    event_queue.put((serialExplainEvent, EventType.HIT_START))
-    serialExplainEvent.wait()
+        serialExplainEvent.clear()
+        multimodal_out("You can hit the ball when you hear a beep.")
+        event_queue.put((serialExplainEvent, EventType.HIT_START))
+        serialExplainEvent.wait()
 
     while True:
         client_input = listen()
