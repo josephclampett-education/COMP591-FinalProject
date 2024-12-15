@@ -181,12 +181,18 @@ def main():
                         explain_stage = None
 
             case Stage.START_ROUND:
-                detectedHitBirdieCount = 0
-                stage = Stage.HIT_INSTRUCT
-                if round_num % 2 == 0:
-                    side = Court.Area.LEFT_SERVICE
-                else:
-                    side = Court.Area.RIGHT_SERVICE
+                if drive_state is None:
+                    detectedHitBirdieCount = 0
+                    if round_num % 2 == 0:
+                        side = Court.Area.LEFT_SERVICE
+                        drive_state = DriveState(realsense.court.SBL, realsense.robot)
+                    else:
+                        side = Court.Area.RIGHT_SERVICE
+                        drive_state = DriveState(realsense.court.SBR, realsense.robot)
+                elif drive_state.stage == DriveStage.DONE:
+                    stage = Stage.HIT_INSTRUCT
+                    robot_commander.send_command(RobotCommander.Stop())
+                    drive_state = None
 
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie
