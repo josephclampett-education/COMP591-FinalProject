@@ -40,6 +40,7 @@ class RealsenseServer:
         self.robot: RobotLocation = None
         self.tracked_hitbirdie = None
         self.court: Court = Court()
+        self.contour_history = []
 
         # Config
         self.LIFETIME_THRESHOLD = 3
@@ -183,6 +184,15 @@ class RealsenseServer:
     def found_arucos(self):
         return self.robot is not None and self.court is not None
 
+    def contours_are_static(self):
+        current_contours = sorted(self.contour_history[-1])
+        if len(self.contour_history) > 10:
+            prev_contours = sorted(self.contour_history[-10])
+            return len(current_contours) == len(prev_contours) and np.allclose(current_contours, prev_contours, atol=0.005, rtol=0)
+        else:
+            return False
+
+
     # This function detects aruco markers and birdies and store stheir positions
     def detect_birdies(self, visualize=True):
         # # Initialize the backround after a short delay
@@ -223,6 +233,8 @@ class RealsenseServer:
         kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel2)
 
+        viable_contours = []
+
         # Find contours of the birdies
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
@@ -235,6 +247,7 @@ class RealsenseServer:
                 centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
                 # TODO CHECK
                 centerRS = [centerSS[0], centerSS[1], centerZ]
+                viable_contours.append(centerRS)
 
                 if self.tracked_hitbirdie:
                     # Update existing birdie
@@ -244,6 +257,7 @@ class RealsenseServer:
                     # Create new birdie
                     self.tracked_hitbirdie = Birdie(*centerRS, False, (x, y, w, h), contour)
 
+        self.contour_history.append(viable_contours)
 
         # ==== Visualize ==== #
         if visualize:
@@ -263,6 +277,9 @@ class RealsenseServer:
                 # TODO Before (birdie.x, birdie.y) was CenterSS !!Validate if it works)
                 cv2.putText(color_image, str(round(bz, 2)), (bx, by), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                if birdie.impact_position:
+                    ip = birdie.impact_position
+                    cv2.rectangle(color_image, (ip.x - 3, ip.y -3), (ip.x + 3, ip.y + 3),  (0, 255, 0), 2)
 
             # TODO Validate result
 
@@ -509,3 +526,4 @@ class RealsenseServer:
 
     def prepare_birdie_tracking(self):
         self.tracked_hitbirdie = None
+        self.contour_history = []
