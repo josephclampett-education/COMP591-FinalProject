@@ -87,7 +87,7 @@ class RobotLocation(Position, Orientation):
 
 
 class CourtLocation():
-    WIDTH = 5.18  # in meters
+    WIDTH = 5.18 - 0.5  # in meters
     LENGTH = 13.4 / 2  # in meters
     MIDDLE_TO_SERVEZONE = 1.98 # in meters
 
@@ -126,7 +126,7 @@ class CourtLocation():
         # Calculate the court corners
 
         # bottom right net
-        court_cornerR = cornerD
+        court_cornerR = [cornerD[0] - self.SCALE * self.LENGTH / 2, cornerD[1] + self.SCALE * self.WIDTH / 2]
 
         # bottom left net
         court_cornerL = (self.SCALE * self.WIDTH * vDA) + court_cornerR
