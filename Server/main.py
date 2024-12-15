@@ -80,7 +80,7 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
 
             case DriveStage.WAIT_ANGLE:
                 angle_diff = robot_location.angle_to(drive_state.target)
-                if abs(angle_diff) < math.radians(5):
+                if abs(angle_diff) < math.radians(4):
                     robot_commander.send_command(RobotCommander.Forward())
                     drive_state.stage = DriveStage.WAIT_DIST
 
@@ -181,18 +181,18 @@ def main():
                         explain_stage = None
 
             case Stage.START_ROUND:
-                if drive_state is None:
-                    detectedHitBirdieCount = 0
-                    if round_num % 2 == 0:
-                        side = Court.Area.LEFT_SERVICE
-                        drive_state = DriveState(realsense.court.SBL, realsense.robot)
-                    else:
-                        side = Court.Area.RIGHT_SERVICE
-                        drive_state = DriveState(realsense.court.SBR, realsense.robot)
-                elif drive_state.stage == DriveStage.DONE:
-                    stage = Stage.HIT_INSTRUCT
-                    robot_commander.send_command(RobotCommander.Stop())
-                    drive_state = None
+                detectedHitBirdieCount = 0
+                stage = Stage.HIT_INSTRUCT
+                if round_num % 2 == 0:
+                    side = Court.Area.LEFT_SERVICE
+                    # drive_state = DriveState(realsense.court.SBL, realsense.robot)
+                else:
+                    side = Court.Area.RIGHT_SERVICE
+                    # drive_state = DriveState(realsense.court.SBR, realsense.robot)
+                # elif drive_state.stage == DriveStage.DONE:
+                #     
+                #     robot_commander.send_command(RobotCommander.Stop())
+                #     drive_state = None
 
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie

@@ -10,7 +10,7 @@ remain a strict subset of that implementation when it comes to low-level
 implementation details.
 """
 
-from socket import socket, AF_BLUETOOTH, BTPROTO_RFCOMM, SOCK_STREAM
+from socket import socket, AF_BLUETOOTH, BTPROTO_RFCOMM, SOCK_STREAM, SOL_SOCKET, SO_SNDBUF
 from socketserver import ThreadingMixIn
 
 
@@ -80,6 +80,7 @@ class RFCOMMClient:
         self.client_address = client_address
         self.RequestHandlerClass = RequestHandlerClass
         self.socket = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM)
+        self.socket.setsockopt(SOL_SOCKET, SO_SNDBUF, 100000)
 
     def handle_request(self):
         self.socket.connect(self.client_address)
