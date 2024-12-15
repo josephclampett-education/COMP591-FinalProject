@@ -120,7 +120,7 @@ def process_user_input(user_input):
         "right": "GPTCODE_TURN_RIGHT",
         "grab": "GPTCODE_GRAB"
     }
-    
+
     prompt = f"""
     The user will send requests to control a robot. Please respond only with one of the following commands: "{', '.join(UNIQUE_KEYWORDS.values())}"
     - To continue the game, return: "{UNIQUE_KEYWORDS['continue']}".
@@ -163,14 +163,14 @@ def listen_and_respond(point_queue, event_queue):
     # Explain court text
     multimodal_out("""1. Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court when your score is even; If your score is odd, you start from the left service court.
                         2. Hitting rules: For singles, the boundaries are narrower than doubles: the inner side lines and the back boundary line are used.""")
-    
+
     serialExplainEvent = Event()
 
     serialExplainEvent.clear()
     multimodal_out("Left court")
     event_queue.put((serialExplainEvent, EventType.INSTRUCT_LEFT_SERVICE_BOUNDS))
     serialExplainEvent.wait()
-    
+
     serialExplainEvent.clear()
     multimodal_out("Right court court")
     event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
@@ -193,25 +193,25 @@ def listen_and_respond(point_queue, event_queue):
             client_input = client_input = client_input.strip().lower()
             print(f"USERINPUT: {client_input}")
 
-        intent = process_user_input(client_input)
-        
-        # Act based on the intent
-        match intent:
-            case "GPTCODE_CONTINUE": # match "continue"
-                multimodal_out("The game continues!")
-            case "GPTCODE_END":  # match "end"
-                multimodal_out("The game has ended! Thank you for playing!")
-                event_queue.put((Event(), EventType.END))
-                break
-            case "GPTCODE_SCORE":  # match "score"
-                event = Event()
-                event_queue.put((event, "SCORE"))
-                event.wait()
-                score = point_queue.get()
-                multimodal_out(f"Your current score is {score} points.")
-            case _:
-                multimodal_out("I couldn't understand your intent. Please try again.")
-                print("I couldn't understand your intent. Please try again.")
+            intent = process_user_input(client_input)
+
+            # Act based on the intent
+            match intent:
+                case "GPTCODE_CONTINUE": # match "continue"
+                    multimodal_out("The game continues!")
+                case "GPTCODE_END":  # match "end"
+                    multimodal_out("The game has ended! Thank you for playing!")
+                    event_queue.put((Event(), EventType.END))
+                    break
+                case "GPTCODE_SCORE":  # match "score"
+                    event = Event()
+                    event_queue.put((event, "SCORE"))
+                    event.wait()
+                    score = point_queue.get()
+                    multimodal_out(f"Your current score is {score} points.")
+                case _:
+                    multimodal_out("I couldn't understand your intent. Please try again.")
+                    print("I couldn't understand your intent. Please try again.")
 
         # if "stop" in client_input:
         #    generate_tts("Ending the session. Goodbye!")
