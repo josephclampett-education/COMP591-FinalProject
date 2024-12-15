@@ -87,11 +87,11 @@ class RobotLocation(Position, Orientation):
 
 
 class CourtLocation():
-    WIDTH = 5.18 / 2  # in meters
+    WIDTH = 5.18  # in meters
     LENGTH = 13.4 / 2  # in meters
     MIDDLE_TO_SERVEZONE = 1.98 # in meters
 
-    SCALE = 40
+    SCALE = 130
 
     def set_corners(self, aruco_corners=None, court_corners=None):
         if aruco_corners is not None:
