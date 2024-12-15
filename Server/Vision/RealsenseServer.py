@@ -401,7 +401,7 @@ class RealsenseServer:
                 centerRS = rs.rs2_deproject_pixel_to_point(self.depth_intrinsics, centerSS, centerZ)
                 centerRS = [centerSS[0], centerSS[1], centerZ]
 
-                newBirdie = Birdie(999, *centerRS, False, (x, y, w, h), contour)
+                newBirdie = Birdie(*centerRS, False, (x, y, w, h), contour)
                 birdiesList.append(newBirdie)
 
         # ==== Visualize ==== #
