@@ -52,6 +52,10 @@ class Beep:
     def __str__(self):
         return "BEEP"
 
+class Fail:
+    def __str__(self):
+        return "FAIL"
+
 class RobotCommander:
     def __init__(self):
         self.client = BluetoothMailboxClient()

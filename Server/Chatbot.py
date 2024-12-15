@@ -37,7 +37,7 @@ def multimodal_out(text):
         # Write the audio response to the in-memory stream
         for chunk in response.iter_bytes():
             audio_data.write(chunk)
-        
+
         # Rewind the stream to the beginning
         audio_data.seek(0)
 
@@ -135,7 +135,7 @@ def process_user_input(user_input):
     - To ask about the score or points (e.g., "What is my current score?", "How many points do I have?", etc.), return: "{UNIQUE_KEYWORDS['score']}".
 
     If they ask a general question about the rules of badminton, respond with only an answer to their question.
-    
+
     Finally, if the intent is unclear, return: "{UNIQUE_KEYWORDS['unsure']}".
     """
 
@@ -160,7 +160,7 @@ def process_user_input(user_input):
 OpenAI.api_key = dotenv_values('.env')["API_KEY"]
 client = OpenAI(api_key=OpenAI.api_key)
 client_input = None
-DEBUG = True
+DEBUG = False
 
 # Speech recognition and command handling
 def listen_and_respond(point_queue, event_queue):
@@ -176,19 +176,19 @@ def listen_and_respond(point_queue, event_queue):
         serialExplainEvent = Event()
 
         serialExplainEvent.clear()
-        multimodal_out("Left court")
+        multimodal_out("Now I will show you the left service court area")
         event_queue.put((serialExplainEvent, EventType.INSTRUCT_LEFT_SERVICE_BOUNDS))
         serialExplainEvent.wait()
 
-        serialExplainEvent.clear()
-        multimodal_out("Right court")
-        event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
-        serialExplainEvent.wait()
+        # serialExplainEvent.clear()
+        # multimodal_out("Now I will show you the right service court area")
+        # event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
+        # serialExplainEvent.wait()
 
-        serialExplainEvent.clear()
-        multimodal_out("Full court")
-        event_queue.put((serialExplainEvent, EventType.INSTRUCT_FULL_COURT_BOUNDS))
-        serialExplainEvent.wait()
+        # serialExplainEvent.clear()
+        # multimodal_out("Now I will show you the full court area for singles badminton")
+        # event_queue.put((serialExplainEvent, EventType.INSTRUCT_FULL_COURT_BOUNDS))
+        # serialExplainEvent.wait()
 
         serialExplainEvent.clear()
         multimodal_out("You can hit the ball when you hear a beep. Please feel free to ask any questions you may have.")

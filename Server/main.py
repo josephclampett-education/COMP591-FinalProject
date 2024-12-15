@@ -8,37 +8,45 @@ sys.path.append(project_root)
 import time
 from collections import deque
 import Server.Vision.RealsenseServer as RealsenseServer
-import Server.Chatbot as Chatbot
 import Server.Location as Location
 import Server.Regiment as Regiment
 import math
 import asyncio
+import numpy as np
 from queue import Queue
 from threading import Event, Thread
 from enum import Enum, auto
 import Server.RobotCommander as RobotCommander
-import Path
+import Server.Path as Path
 from Server.Lesson import make_lesson
-
+import Server.Vision.Court as Court
+import Server.Chatbot as Chatbot
 
 class Stage(Enum):
-    STARTUP_COURT = auto() #1
-    STARTUP_REMOVE_COURT_ARUCO = auto() #2
-    STARTUP_ROBOT = auto() #3
-    STARTGAME = auto() #4
-    HIT_INSTRUCT = auto() #5
-    HIT_PLAYER = auto() #6
-    HIT_REACT = auto() #7
-    ROUND_END = auto() #8
-    COLLECT_EVACUATE = auto() #9
-    COLLECT_PLAN = auto() #10
-    COLLECT_ACT = auto() #11
+    STARTUP_COURT = auto()
+    STARTUP_REMOVE_COURT_ARUCO = auto()
+    STARTUP_ROBOT = auto()
+    STARTUP_CHATBOT = auto()
 
+    STANDBY = auto()
 
-    def next_stage(self):
-        stage = list(self.__class__)
-        print(f"{self} done")
-        return stage[(self.value - 1 + 1) % len(stage)]
+    EXPLAIN_SETUP = auto()
+    EXPLAIN_ACT = auto()
+
+    START_ROUND = auto()
+
+    HIT_INSTRUCT = auto()
+    HIT_AWAITPLAYER = auto()
+    HIT_REACT = auto()
+    HIT_AWAITSTATIC = auto()
+
+    ROUND_END = auto()
+
+    COLLECT_EVACUATE = auto()
+    COLLECT_PLAN = auto()
+    COLLECT_ACT = auto()
+
+    END = auto()
 
 class DriveStage(Enum):
     START = auto()
@@ -46,202 +54,243 @@ class DriveStage(Enum):
     WAIT_DIST = auto()
     DONE = auto()
 
+class DriveState:
+    def __init__(self, target, robot_location: Location.RobotLocation, angle=None, stage=DriveStage.START):
+        self.stage = stage
+        self.target = target
+        if angle is None:
+            angle = robot_location.angle_to(target)
+        self.angle = angle
+
 def has_collected(robot_location, birdie_position):
     return robot_location.flat_distance(birdie_position) < robot_location.flat_distance(robot_location.get_grabber_position())
 
-def check_driving(drive_stage, robot_location: Location.RobotLocation, turn_direction, drive_target, robot_commander):
-    match drive_stage:
-        case DriveStage.START:
-            if turn_direction is None:
-                turn_direction = robot_location.angle_to(drive_target)
-            robot_commander.send_command(RobotCommander.Turn(turn_direction))
-            drive_stage = DriveStage.WAIT_ANGLE
-        case DriveStage.WAIT_ANGLE:
-            angle_diff = robot_location.angle_to(drive_target)
-            if abs(angle_diff) < 0.01:
-                robot_commander.send_command(RobotCommander.Forward())
-                turn_direction = None
-                drive_stage = DriveStage.WAIT_DIST
-            else:
-                robot_commander.send_command(RobotCommander.Turn(turn_direction))
-        case DriveStage.WAIT_DIST:
-            distance = robot_location.flat_distance(drive_target)
-            print(distance)
-            if distance < 0.02:
-                robot_commander.send_command(RobotCommander.Stop())
-                drive_target = None
-                drive_stage = DriveStage.DONE
-            else:
-                robot_commander.send_command(RobotCommander.Forward())
-                turn_direction = robot_location.angle_to(drive_target)
-                if abs(turn_direction) > 0.01:
-                    robot_commander.send_command(RobotCommander.Turn(turn_direction))
+def same_sign(a, b):
+    return a * b > 0
 
-    return (drive_stage, turn_direction, drive_target)
+def check_same_sign(a, b):
+    return same_sign(a,b) and abs(a - b) > math.radians(3)
+
+def check_driving(drive_state: DriveState, robot_location: Location.RobotLocation, robot_commander):
+    if not drive_state is None:
+        match drive_state.stage:
+            case DriveStage.START:
+                robot_commander.send_command(RobotCommander.Turn(drive_state.angle))
+                drive_state.stage = DriveStage.WAIT_ANGLE
+
+            case DriveStage.WAIT_ANGLE:
+                angle_diff = robot_location.angle_to(drive_state.target)
+                if abs(angle_diff) < math.radians(5):
+                    robot_commander.send_command(RobotCommander.Forward())
+                    drive_state.stage = DriveStage.WAIT_DIST
+
+            case DriveStage.WAIT_DIST:
+                distance = robot_location.flat_distance(drive_state.target)
+                print(f"P: ({robot_location.x}, {robot_location.y}), D: {distance}")
+                if distance < 5:
+                    drive_state.stage = DriveStage.DONE
+                else:
+                    angle_diff = robot_location.angle_to(drive_state.target)
+                    if check_same_sign(drive_state.angle, angle_diff) or abs(angle_diff) > math.radians(5):
+                        drive_state.angle = angle_diff
+                        robot_commander.send_command(RobotCommander.Forward(drive_state.angle))
+
+    return drive_state
 
 def main():
+    realsense = RealsenseServer.RealsenseServer(robotArucoId=42, courtArucoId=181, minAreaThreshold=700, maxAreaThreshold=8000)
 
-    robot_commander = RobotCommander.RobotCommander()
+    robot_commander = None
 
-    realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181)
-
+    # initialize Stage control enum
+    stage = Stage.STARTUP_COURT
+    drive_state = None
+    detectedHitBirdieCount = 0
+    BIRDIES_PER_ROUND = 2
+    collectionBirdies = []
     event_queue = Queue()
     point_queue = Queue()
-    # textToSpeechThread = Thread(target=textToSpeech.listen_and_respond, args=(point_queue, event_queue, robot_commander))
-    # textToSpeechThread.start()
-
-    # lesson = make_lesson(realsense.court)
-    # lesson = deque()
-    # lesson.append(Regiment.Regiment(Regiment.Collection()))
-    # regiment: Regiment.Regiment = lesson.popleft()
-    # current_step = regiment.get_next_step(realsense.robot)
-    # print(current_step)
-
-    input("Press to continue")
-    print("c")
-
-
-    points = 0
-
-
-
-    # initialize Stage controll enum
-    stage = Stage.STARTUP_COURT
-    drive_stage = None
-    drive_target = None
-    turn_direction = None
-    BIRDIES_PER_ROUND = 1
-    num_birdies_landed = 0
+    explain_stage = None
+    explain_event = None
+    explain_targets = None
+    setup_done = False
+    score = 0
+    round_num = 0
+    side = None
     while True:
-
         # Here perform actions that should be executed all the time
         realsense.detect_arucos()
 
-        drive_stage, turn_direction, drive_target = check_driving(
-            drive_stage=drive_stage,
+        drive_state = check_driving(
+            drive_state=drive_state,
             robot_location=realsense.robot,
-            turn_direction=turn_direction,
-            drive_target=drive_target,
             robot_commander=robot_commander,
             )
 
         # Here perform actions that should be executed depending on the stage
         match stage:
             case Stage.STARTUP_COURT:
-                print("found court")
-                print("Now orient court aruco to match the perfect position:")
+                print("STARTUP_COURT: Orient court ArUco.")
                 realsense.save_court_position() # this function requires a 'r' keypress to exit
-                stage = stage.next_stage()
+                stage = Stage.STARTUP_REMOVE_COURT_ARUCO
+
             case Stage.STARTUP_REMOVE_COURT_ARUCO:
-            
-                # The court aruco should be removed
+                # The court aruco should be gone
                 if realsense.courtArucoVisible == False:
-                    stage = stage.next_stage()
+                    stage = Stage.STARTUP_CHATBOT
+
+            case Stage.STARTUP_CHATBOT:
+                chatbotThread = Thread(target = Chatbot.listen_and_respond, args = (point_queue, event_queue))
+                chatbotThread.start()
+
+                stage = Stage.STARTUP_ROBOT
+
             case Stage.STARTUP_ROBOT:
                 if realsense.robot != None and realsense.robotArucoVisible == True:
-                    stage = stage.next_stage()
-            case Stage.STARTGAME:
-                # TODO Do we need this stage?
-                pass
+
+                    input("STARTUP_ROBOT: Press to continue.")
+                    robot_commander = RobotCommander.RobotCommander()
+                    print("STARTUP_ROBOT: Confirmed.")
+                    robot_commander.send_command(RobotCommander.ResetGrabberAngle())
+                    setup_done = True
+                    stage = Stage.STANDBY
+
+            case Stage.STANDBY:
+                stage = stage
+
+            case Stage.EXPLAIN_SETUP:
+                court = realsense.court
+                if explain_stage == Chatbot.EventType.INSTRUCT_LEFT_SERVICE_BOUNDS:
+                    explain_targets = deque([court.SBL, court.STL, court.STM, court.SBM])
+                elif explain_stage == Chatbot.EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS:
+                    explain_targets = deque([court.SBR, court.STR, court.STM, court.SBM])
+                elif explain_stage == Chatbot.EventType.INSTRUCT_FULL_COURT_BOUNDS:
+                    explain_targets = deque([court.CL, court.STL, court.STR, court.CR])
+
+                stage = Stage.EXPLAIN_ACT
+
+            case Stage.EXPLAIN_ACT:
+                if drive_state is None or drive_state.stage == DriveStage.DONE:
+                    if len(explain_targets) > 0:
+                        drive_state = DriveState(explain_targets.popleft(), realsense.robot)
+                    else:
+                        stage = Stage.STANDBY
+                        drive_state = None
+                        robot_commander.send_command(RobotCommander.Stop())
+                        explain_event.set()
+                        explain_stage = None
+
+            case Stage.START_ROUND:
+                detectedHitBirdieCount = 0
+                stage = Stage.HIT_INSTRUCT
+                if round_num % 2 == 0:
+                    side = Court.Area.LEFT_SERVICE
+                else:
+                    side = Court.Area.RIGHT_SERVICE
+
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie
-                # TODO
-                # b. Capture background frame of court (includes robot, other birdies, etc.)
-                time.sleep(1)
-                realsense.reset_birdies()
+                realsense.prepare_birdie_tracking()
                 realsense.capture_hit_background() # This is the background with the static robot inside of it
-                stage = stage.next_stage()
-                pass
-            case Stage.HIT_PLAYER:
+
+                robot_commander.send_command(RobotCommander.Beep())
+                stage = Stage.HIT_AWAITPLAYER
+
+            case Stage.HIT_AWAITPLAYER:
                 # a. Player hits a birdie as instructed
                 # b. Camera is live, tracking position of court
-                realsense.detect_birdies(visualize=True)
-                # c. Look for impact
-                if realsense.get_num_birdies_landed() == 1: # We delete birdies after detection, so 1 equals new birdie landed
-                    print("Birdie Detected: Proceed to Stage HIT_REACT")
-                    # go to next stage after a birdie has been detected as landed
-                    num_birdies_landed += 1
-                    # d. Robot reacts to hit
-                    # TODO Robot reacts to  a hit
-                    stage = stage.next_stage()
+                realsense.detect_birdies(visualize = True)
+
+                #print("birdies landed:", realsense.get_num_birdies_landed(), num_birdies_landed)
+                if realsense.tracked_hitbirdie is not None and realsense.tracked_hitbirdie.hit_ground:
+                    print("HIT_AWAITPLAYER: Birdie detected. Reacting.")
+
+                    detectedHitBirdieCount += 1
+                    stage = Stage.HIT_REACT
 
             case Stage.HIT_REACT:
-                # a. Give details on the specific hit
-                # TODO
-
-                # b. Return to HIT_INSTRUCT
-                if num_birdies_landed == BIRDIES_PER_ROUND:
-                    stage = stage.next_stage()
+                birdie = realsense.tracked_hitbirdie
+                dist = birdie.impact_position.flat_distance(realsense.robot)
+                isInside = realsense.court.is_inside(birdie, side)
+                if isInside:
+                    score = score + 2 - np.clip(dist, 0, 200) / 100
                 else:
-                    stage = Stage.HIT_INSTRUCT
+                    robot_commander.send_command(RobotCommander.Fail())
+
+                print(f"HIT_REACT: Birdie(D: {dist}, IN: {isInside})")
+
+                stage = Stage.HIT_AWAITSTATIC
+
+            case Stage.HIT_AWAITSTATIC:
+                realsense.detect_birdies(visualize = True)
+                # b. Return to HIT_INSTRUCT
+                if realsense.contours_are_static():
+                    if detectedHitBirdieCount == BIRDIES_PER_ROUND:
+                        stage = Stage.ROUND_END
+                    else:
+                        stage = Stage.HIT_INSTRUCT
 
             case Stage.ROUND_END:
-                # Robot tells the player to stop, gives stats, etc.
-                # TODO
-                print("Game over")
-                raise Exception("Game Over") # TODO remove
-                # Answers questions
-                pass
+                stage = Stage.COLLECT_EVACUATE
+
             case Stage.COLLECT_EVACUATE:
                 # Robot drives off court in a controlled way (we need to get it back on the court again)
-                if drive_stage is None:
-                    drive_stage = DriveStage.START
-                    drive_target = Location.Position(0, 0, 0)
-                if drive_stage == DriveStage.DONE:
-                    robot_commander.send_command(RobotCommander.WheelTurn(2))
-                    drive_stage = DriveStage.DONE
-                    stage = stage.next_stage()
-                pass
+                if drive_state is None:
+                    drive_state = DriveState(target=Location.Position(150, 150, 0), robot_location=realsense.robot)
+                if drive_state.stage == DriveStage.DONE:
+                    robot_commander.send_command(RobotCommander.WheelTurn(500))
+                    drive_state = None
+                    stage = Stage.COLLECT_PLAN
+
             case Stage.COLLECT_PLAN:
+                time.sleep(5.5)
+
                 # a. Take image
-                collectBirdies = realsense.detect_collection_birdies()
-                path = Path.make_path(realsense.robot, collectBirdies)
+                print("COLLECT_PLAN: Taking collect birdie image.")
+                collectionBirdies = realsense.detect_collection_birdies(visualize=True)
+                if len(collectionBirdies) > 0:
+                    visionBorder = (150, 150, 1280 - 150, 720 - 150)
+                    path = Path.make_path(realsense.robot, collectionBirdies, visionBorder)
+                    stage = Stage.COLLECT_ACT
+                else:
+                    stage = Stage.START_ROUND
+
                 # b. Make fixed path all the way from first to last one detected
                 # c. Return robot to court
-                robot_commander.send_command(RobotCommander.WheelTurn(-2))
-                pass
+                robot_commander.send_command(RobotCommander.WheelTurn(-500))
+                time.sleep(5)
+
             case Stage.COLLECT_ACT:
-                # a. Drive from point to point, grabbing at each stop
-                # b. Don’t worry about if some weren’t collected
-                # c. Return to COLLECT_EVACUATE
-                if drive_stage is None or drive_stage == DriveStage.DONE:
+                # Get birdie
+                if drive_state is None or drive_state.stage == DriveStage.DONE:
                     if len(path) > 0:
-                        drive_stage = DriveStage.START
                         drive_target, turn_direction = path.popleft()
-                pass
+                        drive_state = DriveState(target=drive_target, robot_location=realsense.robot, angle=turn_direction)
+                    else:
+                        stage = Stage.COLLECT_EVACUATE
+                        drive_state = None
 
-        # if not textToSpeechThread.is_alive():
-        #     shutdown()
-        #     break
+            case Stage.END:
+                robot_commander.send_command(RobotCommander.End())
+                quit()
 
-        # if not event_queue.empty():
-        #     event: Event = event_queue.get()
-        #     point_queue.put(points)
-        #     event.set()
+        if setup_done and not event_queue.empty():
+            (event, event_type) = event_queue.get()
+            match event_type:
+                case Chatbot.EventType.GET_SCORE:
+                    point_queue.put(score)
+                    event.set()
+                case Chatbot.EventType.INSTRUCT_FULL_COURT_BOUNDS | Chatbot.EventType.INSTRUCT_LEFT_SERVICE_BOUNDS | Chatbot.EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS:
+                    stage = Stage.EXPLAIN_SETUP
+                    explain_stage = event_type
+                    explain_event = event
+                case Chatbot.EventType.HIT_START:
+                    stage = Stage.START_ROUND
+                    event.set()
+                case Chatbot.EventType.END:
+                    stage = Stage.END
 
-def test():
 
-    robot_commander = RobotCommander.RobotCommander()
-
-    realsense = RealsenseServer.RealsenseServer(robotArucoId=180, courtArucoId=181)
-    drive_stage = DriveStage.START
-    drive_target = Location.Position(0, 0, 0)
-    turn_direction = None
-
-    while True:
-        realsense.detect_arucos()
-        if realsense.robot is None:
-            print("no robot")
-            continue
-        drive_stage, turn_direction, drive_target = check_driving(
-            drive_stage=drive_stage,
-            robot_location=realsense.robot,
-            turn_direction=turn_direction,
-            drive_target=drive_target,
-            robot_commander=robot_commander,
-            )
 
 if __name__ == "__main__":
     main()
-
-
