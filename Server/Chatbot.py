@@ -1,3 +1,4 @@
+import os
 from openai import OpenAI
 from dotenv import dotenv_values
 import speech_recognition as sr
@@ -7,9 +8,6 @@ import pygame as pygame
 from queue import Queue
 from threading import Event, Thread
 from enum import Enum, auto
-
-client = None
-client_input = None
 
 score = 0
 
@@ -109,7 +107,7 @@ def listen():
             print("Say something!")
             try:
                 audio = recognizer.listen(source, timeout = 10, phrase_time_limit = 10)
-                client_input = recognizer.recognize_whisper_api(audio, api_key=OpenAI.api_key)
+                client_input = recognizer.recognize_whisper_api(audio)
                 print(f"Recognized command: {client_input}")
                 return client_input
             except sr.WaitTimeoutError:
@@ -126,25 +124,19 @@ def listen():
 def process_user_input(user_input):
     # Prompt ChatGPT to analyze the user's intent
     UNIQUE_KEYWORDS = {
-        "continue": "GPTCODE_CONTINUE",
         "end": "GPTCODE_END",
         "score": "GPTCODE_SCORE",
-        "unsure": "GPTCODE_UNSURE",
-        "left": "GPTCODE_TURN_LEFT",
-        "right": "GPTCODE_TURN_RIGHT",
-        "grab": "GPTCODE_GRAB"
+        "unsure": "GPTCODE_UNSURE"
     }
 
     prompt = f"""
-    The user will send requests to control a robot. Please respond only with one of the following commands: "{', '.join(UNIQUE_KEYWORDS.values())}"
-    - To continue the game, return: "{UNIQUE_KEYWORDS['continue']}".
+    The user will send requests to control a robot or will ask questions about the rules of badminton. If their intent matches one of the listed commands, please respond only with one of the following responses: "{', '.join(UNIQUE_KEYWORDS.values())}"
     - To end the game, return: "{UNIQUE_KEYWORDS['end']}".
     - To ask about the score or points (e.g., "What is my current score?", "How many points do I have?", etc.), return: "{UNIQUE_KEYWORDS['score']}".
-    - To turn the robot left, return: "{UNIQUE_KEYWORDS['left']}
-    - To turn the robot right, return: "{UNIQUE_KEYWORDS['right']}
-    - To grab things with the robot, return: "{UNIQUE_KEYWORDS['grab']}
-    - If the intent is unclear, return: "{UNIQUE_KEYWORDS['unsure']}".
-    Respond with only one of these identifiers: "{', '.join(UNIQUE_KEYWORDS.values())}".
+
+    If they ask a general question about the rules of badminton, respond with only an answer to their question.
+    
+    Finally, if the intent is unclear, return: "{UNIQUE_KEYWORDS['unsure']}".
     """
 
     response = client.chat.completions.create(
@@ -162,19 +154,21 @@ def process_user_input(user_input):
     responseChoice = responseChoices[0]
     responseMessage = responseChoice.message
     responseContent = responseMessage.content
-    intent = responseContent.strip()
-    return intent
+    cleanedResponse = responseContent.strip()
+    return cleanedResponse
 
+OpenAI.api_key = dotenv_values('.env')["API_KEY"]
+client = OpenAI(api_key=OpenAI.api_key)
+client_input = None
 DEBUG = True
 
 # Speech recognition and command handling
 def listen_and_respond(point_queue, event_queue):
-    OpenAI.api_key = dotenv_values('.env')["API_KEY"]
-    client = OpenAI(api_key=OpenAI.api_key)
+    os.environ["OPENAI_API_KEY"] = OpenAI.api_key
 
     if not DEBUG:
         # Intro text
-        multimodal_out("""Hello, I am your badminton practice partner. We have two rounds of practice: the first round is to familiarize yourself with the rules of singles badminton and the second round is to practice badminton hitting techniques. Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.""")
+        multimodal_out("""Hello, I am your badminton practice partner. We have two rounds of practice: the first round is designed to familiarize yourself with the rules of singles badminton and the second round is to practice badminton hitting techniques. Now, please stand in the position opposite me, and I will introduce the rules of singles badminton.""")
 
         # Explain court text
         multimodal_out("""1, Serving rules: The birdy must be served diagonally to the opponent's service court. You start from the right service court when your score is even; If your score is odd, you start from the left service court. 2, Hitting rules: For singles, the boundaries are narrower than doubles: the inner side lines and the back boundary line are used.""")
@@ -187,7 +181,7 @@ def listen_and_respond(point_queue, event_queue):
         serialExplainEvent.wait()
 
         serialExplainEvent.clear()
-        multimodal_out("Right court court")
+        multimodal_out("Right court")
         event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
         serialExplainEvent.wait()
 
@@ -197,7 +191,7 @@ def listen_and_respond(point_queue, event_queue):
         serialExplainEvent.wait()
 
         serialExplainEvent.clear()
-        multimodal_out("You can hit the ball when you hear a beep.")
+        multimodal_out("You can hit the ball when you hear a beep. Please feel free to ask any questions you may have.")
         event_queue.put((serialExplainEvent, EventType.HIT_START))
         serialExplainEvent.wait()
 
@@ -208,25 +202,25 @@ def listen_and_respond(point_queue, event_queue):
             client_input = client_input = client_input.strip().lower()
             print(f"USERINPUT: {client_input}")
 
-            intent = process_user_input(client_input)
+            response = process_user_input(client_input)
 
             # Act based on the intent
-            match intent:
-                case "GPTCODE_CONTINUE": # match "continue"
-                    multimodal_out("The game continues!")
+            match response:
                 case "GPTCODE_END":  # match "end"
                     multimodal_out("The game has ended! Thank you for playing!")
                     event_queue.put((Event(), EventType.END))
                     break
                 case "GPTCODE_SCORE":  # match "score"
                     event = Event()
-                    event_queue.put((event, "SCORE"))
+                    event_queue.put((event, EventType.GET_SCORE))
                     event.wait()
                     score = point_queue.get()
                     multimodal_out(f"Your current score is {score} points.")
+                case "GPTCODE_UNSURE":
+                    print("UNSURE")
+                    # multimodal_out("I couldn't understand your intent. Please try again.")
                 case _:
-                    multimodal_out("I couldn't understand your intent. Please try again.")
-                    print("I couldn't understand your intent. Please try again.")
+                    multimodal_out(response)
 
         # if "stop" in client_input:
         #    generate_tts("Ending the session. Goodbye!")
