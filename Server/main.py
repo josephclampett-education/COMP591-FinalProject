@@ -69,7 +69,7 @@ def same_sign(a, b):
     return a * b > 0
 
 def check_same_sign(a, b):
-    return same_sign(a,b) and abs(a - b) > math.radians(3)
+    return abs(a - b) > math.radians(3)
 
 def check_driving(drive_state: DriveState, robot_location: Location.RobotLocation, robot_commander):
     if not drive_state is None:
@@ -80,18 +80,20 @@ def check_driving(drive_state: DriveState, robot_location: Location.RobotLocatio
 
             case DriveStage.WAIT_ANGLE:
                 angle_diff = robot_location.angle_to(drive_state.target)
-                if abs(angle_diff) < math.radians(4):
+                if angle_diff == drive_state.angle:
+                    robot_commander.send_command(RobotCommander.Turn(drive_state.angle))
+                elif abs(angle_diff) < math.radians(4):
                     robot_commander.send_command(RobotCommander.Forward())
                     drive_state.stage = DriveStage.WAIT_DIST
 
             case DriveStage.WAIT_DIST:
                 distance = robot_location.flat_distance(drive_state.target)
-                print(f"P: ({robot_location.x}, {robot_location.y}), D: {distance}")
+                #print(f"P: ({robot_location.x}, {robot_location.y}), D: {distance}")
                 if distance < 5:
                     drive_state.stage = DriveStage.DONE
                 else:
                     angle_diff = robot_location.angle_to(drive_state.target)
-                    if check_same_sign(drive_state.angle, angle_diff) or abs(angle_diff) > math.radians(5):
+                    if not same_sign(drive_state.angle, angle_diff) or check_same_sign(drive_state.angle, angle_diff) or abs(angle_diff) > math.radians(5):
                         drive_state.angle = angle_diff
                         robot_commander.send_command(RobotCommander.Forward(drive_state.angle))
 
@@ -266,7 +268,7 @@ def main():
                 # b. Make fixed path all the way from first to last one detected
                 # c. Return robot to court
                 robot_commander.send_command(RobotCommander.WheelTurn(-600))
-                time.sleep(5)
+                time.sleep(7)
 
             case Stage.COLLECT_ACT:
                 # Get birdie

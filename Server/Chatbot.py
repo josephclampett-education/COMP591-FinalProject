@@ -176,17 +176,17 @@ def listen_and_respond(point_queue, event_queue):
     serialExplainEvent = Event()
 
     serialExplainEvent.clear()
-    multimodal_out("Now I will show you the left service court area")
+    multimodal_out("Now I will show you the left service court area.")
     event_queue.put((serialExplainEvent, EventType.INSTRUCT_LEFT_SERVICE_BOUNDS))
     serialExplainEvent.wait()
 
     # serialExplainEvent.clear()
-    # multimodal_out("Now I will show you the right service court area")
+    # multimodal_out("Now I will show you the right service court area.")
     # event_queue.put((serialExplainEvent, EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS))
     # serialExplainEvent.wait()
 
     # serialExplainEvent.clear()
-    # multimodal_out("Now I will show you the full court area for singles badminton")
+    # multimodal_out("Now I will show you the full court area for singles badminton.")
     # event_queue.put((serialExplainEvent, EventType.INSTRUCT_FULL_COURT_BOUNDS))
     # serialExplainEvent.wait()
 
@@ -215,7 +215,7 @@ def listen_and_respond(point_queue, event_queue):
                     event_queue.put((event, EventType.GET_SCORE))
                     event.wait()
                     score = point_queue.get()
-                    multimodal_out(f"Your current score is {score} points.")
+                    multimodal_out(f"Your current score is {score:.2f} points.")
                 case "GPTCODE_UNSURE":
                     print("UNSURE")
                     # multimodal_out("I couldn't understand your intent. Please try again.")
