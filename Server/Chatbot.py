@@ -160,7 +160,7 @@ def process_user_input(user_input):
 OpenAI.api_key = dotenv_values('.env')["API_KEY"]
 client = OpenAI(api_key=OpenAI.api_key)
 client_input = None
-DEBUG = True
+DEBUG = False
 
 # Speech recognition and command handling
 def listen_and_respond(point_queue, event_queue):

@@ -80,7 +80,7 @@ class RFCOMMClient:
         self.client_address = client_address
         self.RequestHandlerClass = RequestHandlerClass
         self.socket = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM)
-        self.socket.setsockopt(SOL_SOCKET, SO_SNDBUF, 100000)
+        self.socket.setsockopt(SOL_SOCKET, SO_SNDBUF, 120000)
 
     def handle_request(self):
         self.socket.connect(self.client_address)

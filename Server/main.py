@@ -106,7 +106,7 @@ def main():
     stage = Stage.STARTUP_COURT
     drive_state = None
     detectedHitBirdieCount = 0
-    BIRDIES_PER_ROUND = 2
+    BIRDIES_PER_ROUND = 4
     collectionBirdies = []
     event_queue = Queue()
     point_queue = Queue()
@@ -137,13 +137,7 @@ def main():
             case Stage.STARTUP_REMOVE_COURT_ARUCO:
                 # The court aruco should be gone
                 if realsense.courtArucoVisible == False:
-                    stage = Stage.STARTUP_CHATBOT
-
-            case Stage.STARTUP_CHATBOT:
-                chatbotThread = Thread(target = Chatbot.listen_and_respond, args = (point_queue, event_queue))
-                chatbotThread.start()
-
-                stage = Stage.STARTUP_ROBOT
+                    stage = Stage.STARTUP_ROBOT
 
             case Stage.STARTUP_ROBOT:
                 if realsense.robot != None and realsense.robotArucoVisible == True:
@@ -153,7 +147,13 @@ def main():
                     print("STARTUP_ROBOT: Confirmed.")
                     robot_commander.send_command(RobotCommander.ResetGrabberAngle())
                     setup_done = True
-                    stage = Stage.STANDBY
+                    stage = Stage.STARTUP_CHATBOT
+
+            case Stage.STARTUP_CHATBOT:
+                chatbotThread = Thread(target = Chatbot.listen_and_respond, args = (point_queue, event_queue))
+                chatbotThread.start()
+
+                stage = Stage.STANDBY
 
             case Stage.STANDBY:
                 stage = stage
@@ -161,9 +161,9 @@ def main():
             case Stage.EXPLAIN_SETUP:
                 court = realsense.court
                 if explain_stage == Chatbot.EventType.INSTRUCT_LEFT_SERVICE_BOUNDS:
-                    explain_targets = deque([court.SBL, court.STL, court.STM, court.SBM])
+                    explain_targets = deque([court.SBM, court.SBL, court.STL, court.STM, court.SBM])
                 elif explain_stage == Chatbot.EventType.INSTRUCT_RIGHT_SERVICE_BOUNDS:
-                    explain_targets = deque([court.SBR, court.STR, court.STM, court.SBM])
+                    explain_targets = deque([court.SBM, court.SBR, court.STR, court.STM, court.SBM])
                 elif explain_stage == Chatbot.EventType.INSTRUCT_FULL_COURT_BOUNDS:
                     explain_targets = deque([court.CL, court.STL, court.STR, court.CR])
 
@@ -193,6 +193,7 @@ def main():
                 #     
                 #     robot_commander.send_command(RobotCommander.Stop())
                 #     drive_state = None
+                round_num = round_num + 1
 
             case Stage.HIT_INSTRUCT:
                 # a. Robot tells player to hit birdie
@@ -238,6 +239,7 @@ def main():
 
             case Stage.ROUND_END:
                 stage = Stage.COLLECT_EVACUATE
+                drive_state = None
 
             case Stage.COLLECT_EVACUATE:
                 # Robot drives off court in a controlled way (we need to get it back on the court again)
@@ -263,7 +265,7 @@ def main():
 
                 # b. Make fixed path all the way from first to last one detected
                 # c. Return robot to court
-                robot_commander.send_command(RobotCommander.WheelTurn(-500))
+                robot_commander.send_command(RobotCommander.WheelTurn(-600))
                 time.sleep(5)
 
             case Stage.COLLECT_ACT:
