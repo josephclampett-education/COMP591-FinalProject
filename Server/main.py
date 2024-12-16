@@ -220,7 +220,7 @@ def main():
                 dist = birdie.impact_position.flat_distance(realsense.robot)
                 isInside = realsense.court.is_inside(birdie, side)
                 if isInside:
-                    score = score + 2 - (np.clip(dist, 100, 400) - 100 / 300 * 2)
+                    score = score + 2 - (np.clip(dist, 100, 400) - 100) / 300 * 2
                 else:
                     robot_commander.send_command(RobotCommander.Fail())
 
