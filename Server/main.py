@@ -190,7 +190,7 @@ def main():
                     side = Court.Area.RIGHT_SERVICE
                     # drive_state = DriveState(realsense.court.SBR, realsense.robot)
                 # elif drive_state.stage == DriveStage.DONE:
-                #     
+                #
                 #     robot_commander.send_command(RobotCommander.Stop())
                 #     drive_state = None
                 round_num = round_num + 1
@@ -220,7 +220,7 @@ def main():
                 dist = birdie.impact_position.flat_distance(realsense.robot)
                 isInside = realsense.court.is_inside(birdie, side)
                 if isInside:
-                    score = score + 2 - np.clip(dist, 0, 200) / 100
+                    score = score + 2 - (np.clip(dist, 100, 400) - 100 / 300 * 2)
                 else:
                     robot_commander.send_command(RobotCommander.Fail())
 
